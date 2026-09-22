@@ -1,0 +1,66 @@
+{
+  "schema_version": "1.0",
+  "schemes": [
+    {
+      "id": "PRE_MATRIC",
+      "name": "Pre-Matric Scholarship",
+      "sponsorship": "CENTRALLY_SPONSORED",
+      "target_level": "IX-X",
+      "category": "ST",
+      "income": { "limit": 250000, "operator": "LESS_THAN_OR_EQUAL" },
+      "benefit_components": ["SCHOLARSHIP"],
+      "validations_required": ["CATEGORY", "ACADEMIC_LEVEL", "INCOME", "REQUIRED_DOCUMENTS"]
+    },
+    {
+      "id": "POST_MATRIC",
+      "name": "Post-Matric Scholarship",
+      "sponsorship": "CENTRALLY_SPONSORED",
+      "target_level": "X+ / Higher Education",
+      "category": "ST",
+      "income": { "limit": 250000, "operator": "LESS_THAN_OR_EQUAL" },
+      "benefit_components": ["MAINTENANCE_ALLOWANCE", "INSTITUTIONAL_FEE"],
+      "validations_required": ["CATEGORY", "ACADEMIC_LEVEL", "INCOME", "REQUIRED_DOCUMENTS"]
+    },
+    {
+      "id": "TOP_CLASS",
+      "name": "National Scholarship Scheme - Top Class",
+      "sponsorship": "NATIONAL",
+      "target_level": "TODO: exact list of the 265 premier institutes (IITs, IIMs, NITs, AIIMS) — need official institute roster",
+      "category": "ST",
+      "income": { "limit": 600000, "operator": "LESS_THAN_OR_EQUAL" },
+      "benefit_components": ["SCHOLARSHIP"],
+      "validations_required": ["INCOME", "INSTITUTION", "COURSE_ACADEMIC"]
+    },
+    {
+      "id": "NATIONAL_FELLOWSHIP",
+      "name": "National Fellowship Scheme",
+      "sponsorship": "NATIONAL",
+      "target_level": "M.Phil / Ph.D. (higher research education)",
+      "category": "ST",
+      "income": null,
+      "benefit_components": ["FELLOWSHIP_STIPEND"],
+      "stipend": {
+        "M_PHIL": { "amount": 25000, "unit": "PER_MONTH" },
+        "PHD": { "amount": 28000, "unit": "PER_MONTH" }
+      },
+      "slot_limit": { "annual": 750, "configurable": true },
+      "validations_required": ["CATEGORY", "ACADEMIC_LEVEL", "SLOT_AVAILABILITY"]
+    },
+    {
+      "id": "NATIONAL_OVERSEAS",
+      "name": "National Overseas Scholarship (NOS)",
+      "sponsorship": "NATIONAL",
+      "target_level": "PG study abroad, Ph.D., Post-Doctoral study",
+      "category": "ST",
+      "income": { "limit": 600000, "operator": "LESS_THAN_OR_EQUAL" },
+      "benefit_components": ["SCHOLARSHIP"],
+      "slot_limit": {
+        "annual": 20,
+        "breakdown": { "ST": 17, "PVTG": 3 },
+        "note": "TODO: confirm whether PVTG needs a distinct category value or is a sub-tag of ST — not specified in handbook"
+      },
+      "tracked_fields": ["country", "university", "course", "study_level", "income", "category", "slot_availability"],
+      "validations_required": ["INCOME", "CATEGORY", "COURSE_ACADEMIC", "SLOT_AVAILABILITY"]
+    }
+  ]
+}
