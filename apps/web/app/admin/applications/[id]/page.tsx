@@ -5,6 +5,11 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
+import { getApplication } from "@/lib/api";
+import {
+  APPLICATION_STATUS_LABELS,
+  SCHEME_LABELS,
+} from "@/lib/types";
 
 export default async function ApplicationDetailsPage({
   params,
@@ -13,37 +18,60 @@ export default async function ApplicationDetailsPage({
 }) {
   const { id } = await params;
 
+  let application;
+
+  try {
+    application = await getApplication(id);
+  } catch {
+    return (
+      <main className="min-h-screen bg-muted/30">
+        <div className="mx-auto max-w-6xl px-6 py-8">
+          <Card>
+            <CardHeader>
+              <CardTitle>Application unavailable</CardTitle>
+            </CardHeader>
+
+            <CardContent>
+              <p className="text-sm text-muted-foreground">
+                We could not load this application. Please try again.
+              </p>
+            </CardContent>
+          </Card>
+        </div>
+      </main>
+    );
+  }
+
   return (
     <main className="min-h-screen bg-muted/30">
       <div className="mx-auto max-w-6xl space-y-6 px-6 py-8">
-
         <header>
           <p className="text-sm font-medium text-muted-foreground">
             Application Review
           </p>
 
           <h1 className="mt-2 text-3xl font-semibold">
-            {id}
+            {application.id}
           </h1>
 
           <p className="mt-2 text-muted-foreground">
-            Review student information, documents and AI validation.
+            Review application information and verification status.
           </p>
         </header>
 
         <Card>
           <CardHeader>
-            <CardTitle>Student information</CardTitle>
+            <CardTitle>Application information</CardTitle>
           </CardHeader>
 
           <CardContent className="grid gap-4 sm:grid-cols-2">
             <div>
               <p className="text-sm text-muted-foreground">
-                Student
+                Student ID
               </p>
 
               <p className="mt-1 font-medium">
-                Student One
+                {application.student_id}
               </p>
             </div>
 
@@ -53,7 +81,7 @@ export default async function ApplicationDetailsPage({
               </p>
 
               <p className="mt-1 font-medium">
-                Post-Matric Scholarship
+                {SCHEME_LABELS[application.scheme_id]}
               </p>
             </div>
 
@@ -64,90 +92,22 @@ export default async function ApplicationDetailsPage({
 
               <div className="mt-1">
                 <Badge variant="secondary">
-                  Processing
+                  {APPLICATION_STATUS_LABELS[application.status]}
                 </Badge>
               </div>
             </div>
-          </CardContent>
-        </Card>
 
-        <Card>
-          <CardHeader>
-            <CardTitle>AI validation</CardTitle>
+            <div>
+              <p className="text-sm text-muted-foreground">
+                Risk score
+              </p>
 
-            <p className="text-sm text-muted-foreground">
-              Rule-level evidence and reasoning.
-            </p>
-          </CardHeader>
-
-          <CardContent>
-            <div className="rounded-lg border p-5">
-
-              <div className="flex flex-wrap items-start justify-between gap-4">
-                <div>
-                  <p className="font-medium">
-                    Income eligibility
-                  </p>
-
-                  <p className="mt-1 text-sm text-muted-foreground">
-                    Rule ID: INCOME_LIMIT
-                  </p>
-                </div>
-
-                <Badge>
-                  PASS
-                </Badge>
-              </div>
-
-              <div className="mt-6 grid gap-4 sm:grid-cols-3">
-
-                <div>
-                  <p className="text-xs text-muted-foreground">
-                    Evidence
-                  </p>
-
-                  <p className="mt-1 font-medium">
-                    ₹1,80,000
-                  </p>
-                </div>
-
-                <div>
-                  <p className="text-xs text-muted-foreground">
-                    Expected
-                  </p>
-
-                  <p className="mt-1 font-medium">
-                    ≤ ₹2,50,000
-                  </p>
-                </div>
-
-                <div>
-                  <p className="text-xs text-muted-foreground">
-                    Severity
-                  </p>
-
-                  <p className="mt-1 font-medium">
-                    None
-                  </p>
-                </div>
-
-              </div>
-
-              <div className="mt-6 border-t pt-4">
-                <p className="text-xs text-muted-foreground">
-                  Reasoning
-                </p>
-
-                <p className="mt-1 text-sm leading-6">
-                  The extracted annual family income is within the
-                  configured eligibility threshold for this scheme.
-                </p>
-              </div>
-
+              <p className="mt-1 font-medium">
+                {application.risk_score ?? "Not evaluated"}
+              </p>
             </div>
           </CardContent>
         </Card>
-
       </div>
     </main>
   );
