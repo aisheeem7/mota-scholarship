@@ -2,7 +2,7 @@
 
 Explains every field in [`config/schemes.json`](../config/schemes.json). Policy facts here are traced to
 the Team Handbook, Ch.4 "Target Schemes" and Ch.5 "Policy as Configuration". UI wording lives separately
-in `config/translations/*.json` (not yet created) — this file is stable IDs and eligibility facts only.
+in [`config/translations/*.json`](../config/translations/en.json) — this file is stable IDs and eligibility facts only.
 
 ## Stable IDs
 
@@ -17,10 +17,9 @@ Five schemes, locked for Day 1. Use these exact strings everywhere `scheme_id` i
 | `NATIONAL_FELLOWSHIP` | National Fellowship Scheme |
 | `NATIONAL_OVERSEAS` | National Overseas Scholarship (NOS) |
 
-`applications.scheme_id` is currently a freeform `text` column with no check constraint (see
-`supabase/migrations/20260921000001_initial_schema.sql`) — this file, not a DB enum, is the source of
-truth for which IDs are valid. If we want DB-level enforcement later, add a check constraint referencing
-this list explicitly rather than duplicating the values inline.
+`applications.scheme_id` is enforced at the DB layer by a CHECK constraint referencing exactly this list
+(`supabase/migrations/20260922000002_scheme_id_and_embedding.sql`) — this file is still the source of
+truth for what each ID *means*, but the DB now rejects anything outside these five.
 
 ## Field meanings
 
@@ -41,11 +40,24 @@ this list explicitly rather than duplicating the values inline.
 - **validations_required** — which validation categories the rules engine runs for this scheme; maps to
   `validations.rule_id` rows the engine writes per application.
 
+## Cross-cutting validations (not per-scheme)
+
+Name/identity matching across a student's documents is **not** part of any scheme's `validations_required`
+list, and that's intentional, not an omission. Per the handbook (Ch.10, Cross-Document Matching), the
+system flags `NAME_MISMATCH` → routes to `FLAGGED_FOR_REVIEW` uniformly, regardless of scheme — it's a
+cross-document embedding comparison, not a scheme-specific rule. Don't add `NAME_MATCH`/`IDENTITY_MATCH`
+to any scheme's `validations_required`; it lives in the matching pipeline instead.
+
 ## Open TODOs (do not guess — confirm against official scheme material)
 
-- `TOP_CLASS.target_level`: exact roster of the 265 premier institutes.
+- `TOP_CLASS.target_level`: exact roster of the 265 premier institutes (field is `null` until resolved —
+  don't put placeholder text in the data value itself).
 - `NATIONAL_OVERSEAS.slot_limit.note`: whether PVTG is a distinct `category` value or a sub-tag of `ST`.
 - Exact INR amounts for `POST_MATRIC` benefit components (maintenance allowance / fee slabs).
+- **Per-scheme required documents**: nothing in the handbook (Ch.1–15) specifies which documents each of
+  the five schemes actually requires — `REQUIRED_DOCUMENTS` in `validations_required` names the category
+  but not a concrete list per scheme. Needed for Nirmalya's test matrix (CASE 05, missing document).
+  Not guessing this one; needs either an official rulebook excerpt or an explicit team decision.
 
 ## Handoffs
 

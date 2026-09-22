@@ -1,0 +1,26 @@
+{
+  "schema_version": "1.0",
+  "status": {
+    "SUBMITTED": "Application submitted",
+    "PROCESSING": "Processing your application",
+    "APPROVED": "Application approved",
+    "DEFICIENT": "Action required",
+    "RESUBMITTED": "Resubmitted for review",
+    "FLAGGED_FOR_REVIEW": "Under review",
+    "ADMIN_REVIEW": "Being reviewed by an administrator",
+    "REJECTED": "Application not approved",
+    "DBT_MOCK": "Payment simulation (demo)"
+  },
+  "documents": {
+    "upload": "Upload document",
+    "unreadable": "Document could not be reliably processed. Please upload a clearer copy.",
+    "retry": "Please try again"
+  },
+  "actions": {
+    "resubmission": "You can fix and resubmit the listed documents.",
+    "next_steps": "Here's what to do next."
+  },
+  "validation": {
+    "explanation_template": "{{rule_name}}: {{reasoning}}"
+  }
+}

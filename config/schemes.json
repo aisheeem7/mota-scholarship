@@ -25,7 +25,7 @@
       "id": "TOP_CLASS",
       "name": "National Scholarship Scheme - Top Class",
       "sponsorship": "NATIONAL",
-      "target_level": "TODO: exact list of the 265 premier institutes (IITs, IIMs, NITs, AIIMS) — need official institute roster",
+      "target_level": null,
       "category": "ST",
       "income": { "limit": 600000, "operator": "LESS_THAN_OR_EQUAL" },
       "benefit_components": ["SCHOLARSHIP"],
