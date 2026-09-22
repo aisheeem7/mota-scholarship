@@ -21,38 +21,48 @@ Response: 200 OK
 
 Purpose: Create a new scholarship application.
 
-Request:
+### Request
 
 {
-  "student_name": "Test Student",
-  "scheme_id": "TEST-SCHEME-001"
+  "student_id": "00000000-0000-0000-0000-000000000001",
+  "scheme_id": "PRE_MATRIC"
 }
 
-Response: 201 Created
+### Response
+
+201 Created
 
 {
   "id": "application-id",
-  "student_name": "Test Student",
-  "scheme_id": "TEST-SCHEME-001",
+  "student_id": "00000000-0000-0000-0000-000000000001",
+  "scheme_id": "PRE_MATRIC",
   "status": "SUBMITTED",
-  "created_at": "2026-09-21T17:54:28.265101Z"
+  "risk_score": null,
+  "created_at": "2026-09-22T15:14:03Z",
+  "updated_at": "2026-09-22T15:14:03Z"
 }
 
 ## GET /api/v1/applications/{application_id}
 
 Purpose: Get an application by its ID.
 
-Response: 200 OK
+### Response
+
+200 OK
 
 {
   "id": "application-id",
-  "student_name": "Test Student",
-  "scheme_id": "TEST-SCHEME-001",
+  "student_id": "00000000-0000-0000-0000-000000000001",
+  "scheme_id": "PRE_MATRIC",
   "status": "SUBMITTED",
-  "created_at": "2026-09-21T17:54:28.265101Z"
+  "risk_score": null,
+  "created_at": "2026-09-22T15:14:03Z",
+  "updated_at": "2026-09-22T15:14:03Z"
 }
 
-Response: 404 Not Found
+### Not Found
+
+404 Not Found
 
 {
   "detail": "Application not found"
@@ -66,21 +76,35 @@ APPROVED
 DEFICIENT
 RESUBMITTED
 FLAGGED_FOR_REVIEW
+REJECTED
 
-## Document Processing States
+## Scheme IDs
 
-SUBMITTED
+PRE_MATRIC
+POST_MATRIC
+TOP_CLASS
+NATIONAL_FELLOWSHIP
+NATIONAL_OVERSEAS
+
+## Document OCR Statuses
+
 PROCESSING
-COMPLETED
-FAILED
+READABLE
+UNREADABLE
+PARTIALLY_READABLE
+
+## Validation Severity
+
+NONE
+LOW
+MEDIUM
+HIGH
 
 ## Validation
 
-student_name: minimum 2 characters, maximum 120 characters
+extracted_value, expected_condition, reasoning, and severity may be null.
 
-scheme_id: required string
-
-Invalid request: 422 Unprocessable Entity
+The current database contract does not define a separate NOT_EVALUABLE state or a validation document_id.
 
 ## CORS
 
@@ -90,6 +114,6 @@ http://localhost:3000
 
 ## Current Implementation
 
-Applications are currently stored in an in-memory Python dictionary as a Day 1 stub.
+Applications are currently stored in an in-memory Python dictionary as a Day 2 development stub.
 
-Supabase/database integration will be added after the database fields and statuses are finalized.
+Supabase/database integration will be added after the API contract is finalized.

@@ -21,13 +21,16 @@ applications: dict[str, ApplicationResponse] = {}
 )
 def create_application(payload: ApplicationCreate):
     application_id = str(uuid4())
+    now = datetime.now(timezone.utc)
 
     application = ApplicationResponse(
         id=application_id,
-        student_name=payload.student_name,
+        student_id=payload.student_id,
         scheme_id=payload.scheme_id,
         status=ApplicationStatus.SUBMITTED,
-        created_at=datetime.now(timezone.utc),
+        risk_score=None,
+        created_at=now,
+        updated_at=now,
     )
 
     applications[application_id] = application
