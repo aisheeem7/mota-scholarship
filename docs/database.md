@@ -9,11 +9,15 @@ Source of truth: `supabase/migrations/`. This doc explains what's there; the mig
 ## Enums / constrained fields (DB-enforced via CHECK, mirrored in `services/api/app/schemas/`)
 
 - `applications.scheme_id` — `PRE_MATRIC | POST_MATRIC | TOP_CLASS | NATIONAL_FELLOWSHIP | NATIONAL_OVERSEAS`
-- `applications.status` — `SUBMITTED | PROCESSING | APPROVED | DEFICIENT | RESUBMITTED | FLAGGED_FOR_REVIEW | REJECTED`
-  **Day 2 open item:** the project workflow spec also defines `ADMIN_REVIEW` (`FLAGGED_FOR_REVIEW -> ADMIN_REVIEW -> admin decision`) and `DBT_MOCK` (`APPROVED -> DBT_MOCK`), neither of which is in this CHECK constraint yet. `ADMIN_REVIEW` is proposed for addition. `DBT_MOCK`'s representation (status value vs. a separate `dbt_mock_transactions` table) is **not yet decided** — pending confirmation with Debopriya + Aishee (gate G7). Do not assume either shape until that's confirmed.
+- `applications.status` — `SUBMITTED | PROCESSING | APPROVED | DEFICIENT | RESUBMITTED | FLAGGED_FOR_REVIEW | REJECTED | ADMIN_REVIEW`
+  `ADMIN_REVIEW` added 2026-09-24 (migration `20260924000001_admin_review_status.sql`), per Issue #6 item 2 — confirmed by Debopriya (her `ApplicationStatus` Pydantic enum updated in the same coordination window, API tests 6/6 passing) and Aishee. Workflow: `FLAGGED_FOR_REVIEW -> ADMIN_REVIEW -> admin decision`.
+  **Day 2 open item (still unresolved):** `DBT_MOCK` (`APPROVED -> DBT_MOCK`) is not in this CHECK constraint. Representation (status value vs. a separate `dbt_mock_transactions` table) is **not yet decided** — pending confirmation with Debopriya + Aishee (gate G7, Issue #6 item 4). Do not assume either shape until that's confirmed.
 - `documents.ocr_status` — `PROCESSING | READABLE | UNREADABLE | PARTIALLY_READABLE`
 - `validations.severity` — `NONE | LOW | MEDIUM | HIGH`
-- `validations.passed` — currently `boolean not null`. **Day 2 open item:** there is no way to represent "not evaluable" (e.g. rule couldn't be checked because the evidence was missing/unreadable) without it looking like a real failure. Proposed fix: make `passed` nullable, `NULL` = not evaluable. Not yet applied — pending confirmation with Debopriya, since her `ValidationResult.passed` is currently a required `bool`.
+- `validations.passed` — `boolean`, nullable (made nullable 2026-09-24, migration `20260924000002_validations_passed_nullable.sql`), per Issue #6 item 3 — frozen semantics, confirmed by Aishee + Debopriya (her `ValidationResult.passed` updated to `bool | None` in the same coordination window, API tests 6/6 passing):
+  - `true` = evaluated and passed
+  - `false` = evaluated and failed
+  - `NULL` = not evaluable (evidence missing/unreadable)
 - `student_document_matches.match_status` — `NULL | EXACT_MATCH | HARMLESS_VARIANT | CONFLICT`. `NULL` is the intentional pre-evaluation state (row exists before the matching step has run).
 - `applications.risk_score` — integer, `0-100` inclusive, nullable. Prototype review-prioritization value only, not an official fraud threshold.
 
