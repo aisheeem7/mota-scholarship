@@ -11,7 +11,7 @@ class ValidationSeverity(str, Enum):
 
 
 class ValidationResult(BaseModel):
-    passed: bool
+    passed: bool | None
     rule_id: str
     rule_name: str
     extracted_value: str | None = None

@@ -76,6 +76,7 @@ APPROVED
 DEFICIENT
 RESUBMITTED
 FLAGGED_FOR_REVIEW
+ADMIN_REVIEW
 REJECTED
 
 ## Scheme IDs
@@ -101,6 +102,10 @@ MEDIUM
 HIGH
 
 ## Validation
+
+passed=true means validation was evaluated and passed.
+passed=false means validation was evaluated and failed.
+passed=null means validation could not be evaluated because required evidence is missing or unreadable.
 
 extracted_value, expected_condition, reasoning, and severity may be null.
 
