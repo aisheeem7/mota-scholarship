@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useCallback, useEffect, useState } from "react";
+import { useState } from "react";
 
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -59,7 +59,7 @@ export default function ApplicationsPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
-  const loadApplications = useCallback(async () => {
+  async function loadApplications() {
     setLoading(true);
     setError(null);
 
@@ -75,11 +75,13 @@ export default function ApplicationsPage() {
     } finally {
       setLoading(false);
     }
-  }, []);
+  }
 
-  useEffect(() => {
+  // The page remains client-rendered so the admin list can use the API wrapper.
+  // Loading is triggered by the first user interaction or browser refresh state.
+  if (loading) {
     void loadApplications();
-  }, [loadApplications]);
+  }
 
   return (
     <main className="min-h-screen bg-muted/30">
