@@ -39,3 +39,69 @@ Signed-URL delivery (so the frontend never gets a raw `storage_path` it can free
 ## Service-role key exposure
 
 Checked (2026-09-22): no reference to `SUPABASE_SERVICE_ROLE_KEY` / `service_role` anywhere in `apps/web` across `main`, `feat/frontend-foundation`, or `feat/frontend-day2-contract-sync`. Only `.env.example` variable *names* exist, no values. Frontend should keep using the anon key only; service-role stays server-side (FastAPI) only.
+
+## Backend (FastAPI) Supabase connection
+
+Added 2026-09-25 for Debopriya's validation-list endpoint work — `services/api` had no Supabase client/config yet, only the `supabase` package installed.
+
+**Credential: service-role key, not anon.** Root cause: RLS is enabled on all 6 tables with zero policies (see `supabase/migrations/20260921000002_rls_draft.sql`, top comment) — that's a deny-all default until the auth model exists. The anon key can't read or write anything right now. The service-role key bypasses RLS and is explicitly the intended server-side credential per that migration's own comment: *"only the service-role key can reach these tables -- exactly what the FastAPI backend should use server-side. Never put it in Next.js client code."*
+
+**Env vars: reuse the root `.env.example` names, don't invent new ones.**
+```
+SUPABASE_URL=
+SUPABASE_SERVICE_ROLE_KEY=
+```
+
+**Suggested pattern** (no existing backend Supabase client to follow — this is the first one):
+
+`services/api/app/core/config.py`
+```python
+from pydantic_settings import BaseSettings, SettingsConfigDict
+
+
+class Settings(BaseSettings):
+    supabase_url: str
+    supabase_service_role_key: str
+
+    model_config = SettingsConfigDict(env_file=".env", extra="ignore")
+
+
+settings = Settings()
+```
+
+`services/api/app/core/supabase_client.py`
+```python
+from functools import lru_cache
+
+from supabase import create_client, Client
+
+from app.core.config import settings
+
+
+@lru_cache
+def get_supabase() -> Client:
+    return create_client(settings.supabase_url, settings.supabase_service_role_key)
+```
+
+Usage as a FastAPI dependency:
+```python
+from fastapi import Depends
+from supabase import Client
+
+from app.core.supabase_client import get_supabase
+
+
+@router.get("/applications/{application_id}/validations")
+def list_validations(application_id: str, supabase: Client = Depends(get_supabase)):
+    result = (
+        supabase.table("validations")
+        .select("*")
+        .eq("application_id", application_id)
+        .execute()
+    )
+    return result.data
+```
+
+`validations` is already indexed on `application_id` (`idx_validations_application_id`, since Day 1) — no DB change needed for this query.
+
+**Guardrail:** service-role key stays in `.env`, out of Git, and never crosses into `apps/web`. Same rule as the frontend exposure check above.
