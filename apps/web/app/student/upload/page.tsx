@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { CheckCircle2, UploadCloud } from "lucide-react";
+import { AlertCircle, CheckCircle2, UploadCloud } from "lucide-react";
 
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
@@ -13,146 +13,112 @@ import {
 } from "@/components/ui/card";
 import { Progress } from "@/components/ui/progress";
 
-const documents = [
-  {
-    id: "caste",
-    name: "Caste Certificate",
-    description: "Valid ST certificate issued by the competent authority.",
-  },
-  {
-    id: "income",
-    name: "Income Certificate",
-    description: "Current annual family income certificate.",
-  },
-  {
-    id: "academic",
-    name: "Academic Certificate",
-    description: "Latest marksheet or academic certificate.",
-  },
-  {
-    id: "identity",
-    name: "Identity Document",
-    description: "Accepted government identity document.",
-  },
-];
-
 type UploadState =
   | "DEFAULT"
   | "UPLOADING"
   | "PROCESSING"
-  | "SUCCESS"
+  | "UNREADABLE"
   | "ERROR";
+
+const MAX_FILE_SIZE = 10 * 1024 * 1024;
+const ACCEPTED_TYPES = ".pdf,.jpg,.jpeg,.png";
 
 export default function UploadPage() {
   const [status, setStatus] = useState<UploadState>("DEFAULT");
-  const [selectedFiles, setSelectedFiles] = useState<
-    Record<string, string>
-  >({});
+  const [selectedFiles, setSelectedFiles] = useState<File[]>([]);
+  const [errorMessage, setErrorMessage] = useState<string | null>(null);
 
-  function handleFileChange(
-    id: string,
-    file: File | undefined
-  ) {
-    if (!file) return;
+  function handleFileChange(fileList: FileList | null) {
+    if (!fileList) return;
 
-    if (file.size > 10 * 1024 * 1024) {
+    const files = Array.from(fileList);
+    const invalidFile = files.find((file) => file.size > MAX_FILE_SIZE);
+
+    if (invalidFile) {
       setStatus("ERROR");
+      setErrorMessage(
+        "File \"" + invalidFile.name + "\" must be 10 MB or less.",
+      );
       return;
     }
 
-    setSelectedFiles((previous) => ({
-      ...previous,
-      [id]: file.name,
-    }));
-
+    setSelectedFiles(files);
     setStatus("DEFAULT");
+    setErrorMessage(null);
   }
 
-  function handleSubmit() {
-    setStatus("UPLOADING");
-
-    setTimeout(() => {
-      setStatus("PROCESSING");
-
-      setTimeout(() => {
-        setStatus("SUCCESS");
-      }, 1500);
-    }, 1000);
+  function clearSelection() {
+    setSelectedFiles([]);
+    setStatus("DEFAULT");
+    setErrorMessage(null);
   }
 
   return (
     <main className="min-h-screen bg-muted/30">
-      <div className="mx-auto max-w-3xl px-6 py-8">
-
+      <div className="mx-auto max-w-3xl px-4 py-8 sm:px-6">
         <header className="mb-8">
           <p className="text-sm font-medium text-muted-foreground">
             MoTA Scholarship Portal
           </p>
-
-          <h1 className="mt-2 text-3xl font-semibold">
-            Upload documents
-          </h1>
-
+          <h1 className="mt-2 text-3xl font-semibold">Upload documents</h1>
           <p className="mt-2 text-muted-foreground">
-            Upload clear copies of the documents required for verification.
+            Select the documents you want to submit for verification.
           </p>
         </header>
 
         <Card>
           <CardHeader>
-            <CardTitle>Required documents</CardTitle>
-
+            <CardTitle>Document upload</CardTitle>
             <p className="text-sm text-muted-foreground">
-              Accepted formats: PDF, JPG, JPEG and PNG. Maximum size:
-              10 MB per file.
+              Document categories are intentionally not hardcoded until the
+              document_type contract is confirmed. Accepted formats: PDF, JPG,
+              JPEG and PNG. Maximum size: 10 MB per file.
             </p>
           </CardHeader>
 
           <CardContent className="space-y-6">
+            <label
+              htmlFor="document-upload"
+              className="flex cursor-pointer flex-col items-center justify-center rounded-lg border border-dashed p-8 text-center transition-colors hover:bg-muted/50"
+            >
+              <UploadCloud className="mb-3 h-8 w-8" />
+              <span className="font-medium">Choose document files</span>
+              <span className="mt-1 text-sm text-muted-foreground">
+                Multiple files can be selected.
+              </span>
+              <input
+                id="document-upload"
+                type="file"
+                multiple
+                accept={ACCEPTED_TYPES}
+                className="sr-only"
+                onChange={(event) => handleFileChange(event.target.files)}
+              />
+            </label>
 
-            {documents.map((document) => (
-              <div
-                key={document.id}
-                className="rounded-lg border p-4"
-              >
-                <div className="flex items-start gap-3">
-                  <UploadCloud className="mt-1 h-5 w-5 shrink-0" />
-
-                  <div className="min-w-0 flex-1">
-                    <p className="font-medium">
-                      {document.name}
-                    </p>
-
-                    <p className="mt-1 text-sm text-muted-foreground">
-                      {document.description}
-                    </p>
-
-                    <input
-                      type="file"
-                      accept=".pdf,.jpg,.jpeg,.png"
-                      className="mt-4 block w-full text-sm"
-                      onChange={(event) =>
-                        handleFileChange(
-                          document.id,
-                          event.target.files?.[0]
-                        )
-                      }
-                    />
-
-                    {selectedFiles[document.id] && (
-                      <p className="mt-2 text-xs text-muted-foreground">
-                        Selected: {selectedFiles[document.id]}
-                      </p>
-                    )}
-                  </div>
-                </div>
+            {selectedFiles.length > 0 && (
+              <div className="space-y-3">
+                <p className="text-sm font-medium">
+                  Selected files ({selectedFiles.length})
+                </p>
+                <ul className="space-y-2">
+                  {selectedFiles.map((file) => (
+                    <li
+                      key={file.name + "-" + file.size + "-" + file.lastModified}
+                      className="rounded-md border px-3 py-2 text-sm"
+                    >
+                      {file.name}
+                    </li>
+                  ))}
+                </ul>
               </div>
-            ))}
+            )}
 
             {status === "ERROR" && (
               <Alert variant="destructive">
+                <AlertCircle className="h-4 w-4" />
                 <AlertDescription>
-                  File size must be 10 MB or less.
+                  {errorMessage ?? "The selected file could not be accepted."}
                 </AlertDescription>
               </Alert>
             )}
@@ -160,10 +126,9 @@ export default function UploadPage() {
             {status === "UPLOADING" && (
               <div className="space-y-2">
                 <div className="flex justify-between text-sm">
-                  <span>Uploading documents...</span>
-                  <span>50%</span>
+                  <span>Uploading documents…</span>
+                  <span>In progress</span>
                 </div>
-
                 <Progress value={50} />
               </div>
             )}
@@ -171,40 +136,36 @@ export default function UploadPage() {
             {status === "PROCESSING" && (
               <Alert>
                 <AlertDescription>
-                  Documents uploaded. AI verification is being prepared.
+                  Documents uploaded. Processing is in progress.
                 </AlertDescription>
               </Alert>
             )}
 
-            {status === "SUCCESS" && (
+            {status === "UNREADABLE" && (
+              <Alert variant="destructive">
+                <AlertDescription>
+                  A document could not be read. Please upload a clearer copy.
+                </AlertDescription>
+              </Alert>
+            )}
+
+            {status === "DEFAULT" && selectedFiles.length > 0 && (
               <Alert>
                 <CheckCircle2 className="h-4 w-4" />
-
                 <AlertDescription>
-                  Documents submitted successfully.
+                  Files are ready for upload once the document upload contract
+                  is connected.
                 </AlertDescription>
               </Alert>
             )}
 
-            <Button
-              onClick={handleSubmit}
-              disabled={
-                status === "UPLOADING" ||
-                status === "PROCESSING"
-              }
-            >
-              {status === "UPLOADING"
-                ? "Uploading..."
-                : status === "PROCESSING"
-                ? "Processing..."
-                : status === "SUCCESS"
-                ? "Submitted"
-                : "Submit documents"}
-            </Button>
-
+            {selectedFiles.length > 0 && (
+              <Button variant="outline" onClick={clearSelection}>
+                Clear selection
+              </Button>
+            )}
           </CardContent>
         </Card>
-
       </div>
     </main>
   );
