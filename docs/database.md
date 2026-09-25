@@ -4,14 +4,16 @@ Source of truth: `supabase/migrations/`. This doc explains what's there; the mig
 
 ## Tables
 
-`students`, `applications`, `documents`, `validations`, `workflow_events`, `student_document_matches` — UUID PKs, FKs, timestamps. RLS enabled on all 6, zero policies yet (pending the auth model — see Day 2 open items below).
+`students`, `applications`, `documents`, `validations`, `workflow_events`, `student_document_matches`, `dbt_mock_transactions` — UUID PKs, FKs, timestamps. RLS enabled on all 7, zero policies yet (pending the auth model — see Day 2 open items below).
 
 ## Enums / constrained fields (DB-enforced via CHECK, mirrored in `services/api/app/schemas/`)
 
 - `applications.scheme_id` — `PRE_MATRIC | POST_MATRIC | TOP_CLASS | NATIONAL_FELLOWSHIP | NATIONAL_OVERSEAS`
 - `applications.status` — `SUBMITTED | PROCESSING | APPROVED | DEFICIENT | RESUBMITTED | FLAGGED_FOR_REVIEW | REJECTED | ADMIN_REVIEW`
   `ADMIN_REVIEW` added 2026-09-24 (migration `20260924000001_admin_review_status.sql`), per Issue #6 item 2 — confirmed by Debopriya (her `ApplicationStatus` Pydantic enum updated in the same coordination window, API tests 6/6 passing) and Aishee. Workflow: `FLAGGED_FOR_REVIEW -> ADMIN_REVIEW -> admin decision`.
-  **Day 2 open item (still unresolved):** `DBT_MOCK` (`APPROVED -> DBT_MOCK`) is not in this CHECK constraint. Representation (status value vs. a separate `dbt_mock_transactions` table) is **not yet decided** — pending confirmation with Debopriya + Aishee (gate G7, Issue #6 item 4). Do not assume either shape until that's confirmed.
+  **`DBT_MOCK` — resolved 2026-09-25 (migration `20260925000001_dbt_mock_transactions.sql`), per Issue #6 item 4.** Frozen by Aishee, confirmed by Debopriya: kept as a **separate table**, not an `applications.status` value — an application's lifecycle status and its downstream DBT transfer state are not conflated.
+  - New table `dbt_mock_transactions`: `id` (PK), `application_id` (`UNIQUE`, FK -> `applications(id)` on delete cascade — one transaction per application), `status` (`PENDING | SUCCESS | FAILED`), `transaction_id`, `amount`, `created_at`. RLS enabled, zero policies (matches every other table).
+  - Consumed by `GET /api/v1/applications/{application_id}/dbt-transaction` — 200 returns `application_id, status, transaction_id, amount, created_at`; 404 when no row exists for that application. Debopriya to align the FastAPI schema/endpoint against this shape.
 - `documents.ocr_status` — `PROCESSING | READABLE | UNREADABLE | PARTIALLY_READABLE`
 - `validations.severity` — `NONE | LOW | MEDIUM | HIGH`
 - `validations.passed` — `boolean`, nullable (made nullable 2026-09-24, migration `20260924000002_validations_passed_nullable.sql`), per Issue #6 item 3 — frozen semantics, confirmed by Aishee + Debopriya (her `ValidationResult.passed` updated to `bool | None` in the same coordination window, API tests 6/6 passing):
