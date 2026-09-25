@@ -8,8 +8,7 @@
     "RESUBMITTED": "পর্যালোচনার জন্য পুনরায় জমা দেওয়া হয়েছে",
     "FLAGGED_FOR_REVIEW": "পর্যালোচনাধীন",
     "ADMIN_REVIEW": "একজন প্রশাসক দ্বারা পর্যালোচনা করা হচ্ছে",
-    "REJECTED": "আবেদন অনুমোদিত হয়নি",
-    "DBT_MOCK": "পেমেন্ট সিমুলেশন (ডেমো)"
+    "REJECTED": "আবেদন অনুমোদিত হয়নি"
   },
   "documents": {
     "upload": "নথি আপলোড করুন",
@@ -22,5 +21,8 @@
   },
   "validation": {
     "explanation_template": "{{rule_name}}: {{reasoning}}"
+  },
+  "dbt": {
+    "demo_label": "ডেমো ডিবিটি সিমুলেশন"
   }
 }

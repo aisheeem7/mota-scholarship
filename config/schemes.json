@@ -57,7 +57,7 @@
       "slot_limit": {
         "annual": 20,
         "breakdown": { "ST": 17, "PVTG": 3 },
-        "note": "TODO: confirm whether PVTG needs a distinct category value or is a sub-tag of ST — not specified in handbook"
+        "note": "PROTOTYPE CONFIGURATION (Issue #6 item 6): PVTG is treated as a sub-tag of ST, not a distinct students.category value. The 17/3 split is kept here only. Not an official MoTA rule."
       },
       "tracked_fields": ["country", "university", "course", "study_level", "income", "category", "slot_availability"],
       "validations_required": ["INCOME", "CATEGORY", "COURSE_ACADEMIC", "SLOT_AVAILABILITY"]

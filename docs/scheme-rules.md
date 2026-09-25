@@ -48,16 +48,27 @@ system flags `NAME_MISMATCH` → routes to `FLAGGED_FOR_REVIEW` uniformly, regar
 cross-document embedding comparison, not a scheme-specific rule. Don't add `NAME_MATCH`/`IDENTITY_MATCH`
 to any scheme's `validations_required`; it lives in the matching pipeline instead.
 
+## Prototype decisions (frozen in Issue #6, 2026-09-25)
+
+These are **PROTOTYPE CONFIGURATION**, not official MoTA policy. No source in the handbook defines them.
+
+- **Document types.** `documents.document_type` accepts `INCOME_CERTIFICATE`, `CASTE_CERTIFICATE`,
+  `ACADEMIC_RECORD` and `IDENTITY_DOCUMENT` (enforced in the DB, migration
+  `20260925000002_document_type_check.sql`). The values come from the handbook's Ch.32 demo story. There is
+  **no per-scheme required-document mapping**: the handbook (Ch.1–36) never says which documents each scheme
+  needs, so `REQUIRED_DOCUMENTS` in `validations_required` stays a category name only.
+- **NOS PVTG.** PVTG is treated as a sub-tag of `ST`. `students.category` is not extended, and the 17 ST /
+  3 PVTG slot split lives only in `NATIONAL_OVERSEAS.slot_limit`.
+- **DBT mock.** A demo DBT transfer is recorded in a separate `dbt_mock_transactions` table, not as an
+  application status. UI copy must always label it as a demo (handbook Ch.13).
+
 ## Open TODOs (do not guess — confirm against official scheme material)
 
 - `TOP_CLASS.target_level`: exact roster of the 265 premier institutes (field is `null` until resolved —
   don't put placeholder text in the data value itself).
-- `NATIONAL_OVERSEAS.slot_limit.note`: whether PVTG is a distinct `category` value or a sub-tag of `ST`.
 - Exact INR amounts for `POST_MATRIC` benefit components (maintenance allowance / fee slabs).
-- **Per-scheme required documents**: nothing in the handbook (Ch.1–15) specifies which documents each of
-  the five schemes actually requires — `REQUIRED_DOCUMENTS` in `validations_required` names the category
-  but not a concrete list per scheme. Needed for Nirmalya's test matrix (CASE 05, missing document).
-  Not guessing this one; needs either an official rulebook excerpt or an explicit team decision.
+- Official per-scheme required documents, if an official source is ever supplied. Until then the prototype
+  decision above applies.
 
 ## Handoffs
 

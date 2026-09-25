@@ -8,8 +8,7 @@
     "RESUBMITTED": "समीक्षा के लिए पुनः जमा किया गया",
     "FLAGGED_FOR_REVIEW": "समीक्षा में है",
     "ADMIN_REVIEW": "प्रशासक द्वारा समीक्षा की जा रही है",
-    "REJECTED": "आवेदन स्वीकृत नहीं हुआ",
-    "DBT_MOCK": "भुगतान सिमुलेशन (डेमो)"
+    "REJECTED": "आवेदन स्वीकृत नहीं हुआ"
   },
   "documents": {
     "upload": "दस्तावेज़ अपलोड करें",
@@ -22,5 +21,8 @@
   },
   "validation": {
     "explanation_template": "{{rule_name}}: {{reasoning}}"
+  },
+  "dbt": {
+    "demo_label": "डेमो डीबीटी सिमुलेशन"
   }
 }

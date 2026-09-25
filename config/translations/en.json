@@ -8,8 +8,7 @@
     "RESUBMITTED": "Resubmitted for review",
     "FLAGGED_FOR_REVIEW": "Under review",
     "ADMIN_REVIEW": "Being reviewed by an administrator",
-    "REJECTED": "Application not approved",
-    "DBT_MOCK": "Payment simulation (demo)"
+    "REJECTED": "Application not approved"
   },
   "documents": {
     "upload": "Upload document",
@@ -22,5 +21,8 @@
   },
   "validation": {
     "explanation_template": "{{rule_name}}: {{reasoning}}"
+  },
+  "dbt": {
+    "demo_label": "Demo DBT Simulation"
   }
 }
