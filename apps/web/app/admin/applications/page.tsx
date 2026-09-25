@@ -77,12 +77,6 @@ export default function ApplicationsPage() {
     }
   }
 
-  // The page remains client-rendered so the admin list can use the API wrapper.
-  // Loading is triggered by the first user interaction or browser refresh state.
-  if (loading) {
-    void loadApplications();
-  }
-
   return (
     <main className="min-h-screen bg-muted/30">
       <div className="mx-auto max-w-7xl px-4 py-8 sm:px-6">
@@ -103,15 +97,26 @@ export default function ApplicationsPage() {
 
           <CardContent>
             {loading && (
-              <p className="py-8 text-center text-sm text-muted-foreground">
-                Loading applications…
-              </p>
+              <div className="flex flex-col items-center gap-3 py-8 text-center">
+                <p className="text-sm text-muted-foreground">
+                  Loading applications…
+                </p>
+                <Button
+                  variant="outline"
+                  onClick={() => void loadApplications()}
+                >
+                  Load applications
+                </Button>
+              </div>
             )}
 
             {!loading && error && (
               <div className="flex flex-col items-center gap-3 py-8 text-center">
                 <p className="text-sm text-destructive">{error}</p>
-                <Button variant="outline" onClick={() => void loadApplications()}>
+                <Button
+                  variant="outline"
+                  onClick={() => void loadApplications()}
+                >
                   Retry
                 </Button>
               </div>
