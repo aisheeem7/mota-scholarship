@@ -41,6 +41,7 @@ export type ApplicationStatus =
   | "DEFICIENT"
   | "RESUBMITTED"
   | "FLAGGED_FOR_REVIEW"
+  | "ADMIN_REVIEW"
   | "REJECTED";
 
 export interface Application {
@@ -153,6 +154,7 @@ export const APPLICATION_STATUS_LABELS: Record<
   DEFICIENT: "Deficient",
   RESUBMITTED: "Resubmitted",
   FLAGGED_FOR_REVIEW: "Flagged for Review",
+  ADMIN_REVIEW: "Admin Review",
   REJECTED: "Rejected",
 };
 
@@ -203,6 +205,7 @@ export function isApplicationStatus(
     value === "DEFICIENT" ||
     value === "RESUBMITTED" ||
     value === "FLAGGED_FOR_REVIEW" ||
+    value === "ADMIN_REVIEW" ||
     value === "REJECTED"
   );
 }
@@ -254,5 +257,6 @@ export const APPLICATION_STATUS_TONES: Record<
   DEFICIENT: "warning",
   RESUBMITTED: "neutral",
   FLAGGED_FOR_REVIEW: "danger",
+  ADMIN_REVIEW: "warning",
   REJECTED: "danger",
 };
