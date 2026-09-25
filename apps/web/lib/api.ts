@@ -82,3 +82,12 @@ export async function getApplication(
     `/api/v1/applications/${applicationId}`,
   );
 }
+
+/**
+ * GET /api/v1/admin/applications
+ *
+ * Uses the shared Application contract. No frontend-only application type.
+ */
+export async function getAdminApplications(): Promise<Application[]> {
+  return apiGet<Application[]>("/api/v1/admin/applications");
+}
