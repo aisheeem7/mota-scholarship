@@ -26,6 +26,9 @@ from app.services.risk.risk_service import (
 from app.services.validation.validation_service import (
     validate_extraction,
 )
+from app.services.workflow.workflow_service import (
+    transition_application,
+)
 
 
 STORAGE_BUCKET = "application-documents"
@@ -97,23 +100,23 @@ def process_application_documents(
     """
     Process all documents belonging to an application.
 
-    Current flow:
+    Flow:
 
     1. Fetch application and scheme.
-    2. Fetch application documents.
-    3. Download each document from private storage.
-    4. Run LlamaCloud OCR.
-    5. Persist OCR text and OCR status.
-    6. Run configured extraction provider.
-    7. Validate extracted data against canonical scheme config.
-    8. Persist deterministic validation results.
-    9. Collect successful extractions.
+    2. Move SUBMITTED/RESUBMITTED -> PROCESSING when needed.
+    3. Fetch application documents.
+    4. Download each document from private storage.
+    5. Run LlamaCloud OCR.
+    6. Persist OCR text and OCR status.
+    7. Run configured extraction provider.
+    8. Validate extracted data against canonical scheme config.
+    9. Persist deterministic validation results.
     10. Cross-match extracted values between documents.
     11. Persist cross-document match results.
     12. Calculate prototype risk score.
     13. Persist applications.risk_score.
-    14. Route conflicts to FLAGGED_FOR_REVIEW.
-    15. Keep unreadable cases DEFICIENT.
+    14. Move PROCESSING -> final workflow state.
+    15. Persist workflow event for the transition.
 
     Extraction providers:
     - mock
@@ -142,15 +145,39 @@ def process_application_documents(
 
     application = application_rows[0]
     scheme_id = application["scheme_id"]
+    current_status = ApplicationStatus(
+        application["status"]
+    )
 
     # ---------------------------------------------------------
-    # 2. Fetch configured extraction provider
+    # 2. Ensure processing state
+    # ---------------------------------------------------------
+
+    if current_status in {
+        ApplicationStatus.SUBMITTED,
+        ApplicationStatus.RESUBMITTED,
+    }:
+        transition_application(
+            application_id=application_id,
+            from_status=current_status,
+            to_status=ApplicationStatus.PROCESSING,
+            reason="Document processing started",
+            supabase=supabase,
+        )
+
+        current_status = ApplicationStatus.PROCESSING
+
+    elif current_status != ApplicationStatus.PROCESSING:
+        return
+
+    # ---------------------------------------------------------
+    # 3. Fetch configured extraction provider
     # ---------------------------------------------------------
 
     extraction_service = get_extraction_service()
 
     # ---------------------------------------------------------
-    # 3. Fetch documents
+    # 4. Fetch documents
     # ---------------------------------------------------------
 
     documents_result = (
@@ -158,36 +185,50 @@ def process_application_documents(
         .select(
             "id, storage_path, document_type, ocr_status"
         )
-        .eq("application_id", str(application_id))
+        .eq(
+            "application_id",
+            str(application_id),
+        )
         .execute()
     )
 
     documents = documents_result.data or []
 
     # ---------------------------------------------------------
-    # 4. No documents -> DEFICIENT
+    # 5. No documents -> DEFICIENT
     # ---------------------------------------------------------
 
     if not documents:
+        transition_application(
+            application_id=application_id,
+            from_status=ApplicationStatus.PROCESSING,
+            to_status=ApplicationStatus.DEFICIENT,
+            reason="No application documents were provided",
+            supabase=supabase,
+        )
+
         (
             supabase.table("applications")
             .update(
                 {
-                    "status": ApplicationStatus.DEFICIENT.value,
                     "risk_score": 20,
                 }
             )
-            .eq("id", str(application_id))
+            .eq(
+                "id",
+                str(application_id),
+            )
             .execute()
         )
 
         return
 
     any_unreadable = False
+    validation_failed = False
     extracted_documents = []
 
     # ---------------------------------------------------------
-    # 5. Process every document
+    # 6. Process every document
     # ---------------------------------------------------------
 
     for document in documents:
@@ -197,7 +238,7 @@ def process_application_documents(
 
         try:
             # -------------------------------------------------
-            # 5a. Download document
+            # 6a. Download document
             # -------------------------------------------------
 
             file_bytes = (
@@ -207,7 +248,7 @@ def process_application_documents(
             )
 
             # -------------------------------------------------
-            # 5b. Get filename
+            # 6b. Get filename
             # -------------------------------------------------
 
             filename = storage_path.rsplit(
@@ -216,7 +257,7 @@ def process_application_documents(
             )[-1]
 
             # -------------------------------------------------
-            # 5c. Run OCR
+            # 6c. Run OCR
             # -------------------------------------------------
 
             ocr_text = run_ocr(
@@ -225,7 +266,7 @@ def process_application_documents(
             )
 
             # -------------------------------------------------
-            # 5d. Persist OCR result
+            # 6d. Persist OCR result
             # -------------------------------------------------
 
             (
@@ -236,12 +277,15 @@ def process_application_documents(
                         "ocr_text": ocr_text,
                     }
                 )
-                .eq("id", document_id)
+                .eq(
+                    "id",
+                    document_id,
+                )
                 .execute()
             )
 
             # -------------------------------------------------
-            # 5e. Structured extraction
+            # 6e. Structured extraction
             # -------------------------------------------------
 
             extraction = (
@@ -252,7 +296,7 @@ def process_application_documents(
             )
 
             # -------------------------------------------------
-            # 5f. Deterministic validation
+            # 6f. Deterministic validation
             # -------------------------------------------------
 
             validation_results = validate_extraction(
@@ -261,7 +305,17 @@ def process_application_documents(
             )
 
             # -------------------------------------------------
-            # 5g. Persist validation evidence
+            # 6g. Check deterministic rule failures
+            # -------------------------------------------------
+
+            if any(
+                result.passed is False
+                for result in validation_results
+            ):
+                validation_failed = True
+
+            # -------------------------------------------------
+            # 6h. Persist validation evidence
             # -------------------------------------------------
 
             _persist_validation_results(
@@ -271,7 +325,7 @@ def process_application_documents(
             )
 
             # -------------------------------------------------
-            # 5h. Keep extraction for matching
+            # 6i. Keep extraction for matching
             # -------------------------------------------------
 
             extracted_documents.append(
@@ -296,7 +350,10 @@ def process_application_documents(
                         "ocr_status": OCRStatus.UNREADABLE.value,
                     }
                 )
-                .eq("id", document_id)
+                .eq(
+                    "id",
+                    document_id,
+                )
                 .execute()
             )
 
@@ -305,6 +362,8 @@ def process_application_documents(
             # OCR succeeded but extraction failed
             # -------------------------------------------------
 
+            validation_failed = True
+
             (
                 supabase.table("documents")
                 .update(
@@ -312,7 +371,10 @@ def process_application_documents(
                         "ocr_status": OCRStatus.READABLE.value,
                     }
                 )
-                .eq("id", document_id)
+                .eq(
+                    "id",
+                    document_id,
+                )
                 .execute()
             )
 
@@ -330,12 +392,15 @@ def process_application_documents(
                         "ocr_status": OCRStatus.UNREADABLE.value,
                     }
                 )
-                .eq("id", document_id)
+                .eq(
+                    "id",
+                    document_id,
+                )
                 .execute()
             )
 
     # ---------------------------------------------------------
-    # 6. Cross-document matching
+    # 7. Cross-document matching
     # ---------------------------------------------------------
 
     match_results = []
@@ -352,7 +417,7 @@ def process_application_documents(
         )
 
     # ---------------------------------------------------------
-    # 7. Determine match conflict
+    # 8. Determine matching conflict
     # ---------------------------------------------------------
 
     matching_conflict = has_conflict(
@@ -360,7 +425,7 @@ def process_application_documents(
     )
 
     # ---------------------------------------------------------
-    # 8. Calculate prototype risk
+    # 9. Calculate prototype risk
     # ---------------------------------------------------------
 
     risk_assessment = calculate_risk(
@@ -371,7 +436,7 @@ def process_application_documents(
     )
 
     # ---------------------------------------------------------
-    # 9. Persist risk score
+    # 10. Persist risk score
     # ---------------------------------------------------------
 
     (
@@ -381,40 +446,48 @@ def process_application_documents(
                 "risk_score": risk_assessment.score,
             }
         )
-        .eq("id", str(application_id))
+        .eq(
+            "id",
+            str(application_id),
+        )
         .execute()
     )
 
     # ---------------------------------------------------------
-    # 10. Determine final application status
+    # 11. Determine final workflow state
     # ---------------------------------------------------------
 
-    if any_unreadable:
-        final_status = ApplicationStatus.DEFICIENT.value
+    if any_unreadable or validation_failed:
+        final_status = ApplicationStatus.DEFICIENT
+        reason = (
+            "Application requires document or "
+            "eligibility corrections"
+        )
 
     elif matching_conflict:
-        # Cross-document conflict requires human review.
-        # It is not automatic rejection or fraud.
         final_status = (
-            ApplicationStatus.FLAGGED_FOR_REVIEW.value
+            ApplicationStatus.FLAGGED_FOR_REVIEW
+        )
+        reason = (
+            "Cross-document inconsistency requires "
+            "human review"
         )
 
     else:
-        # Full workflow decision comes after risk/workflow
-        # integration is completed.
-        final_status = ApplicationStatus.PROCESSING.value
-
-    # ---------------------------------------------------------
-    # 11. Persist final application status
-    # ---------------------------------------------------------
-
-    (
-        supabase.table("applications")
-        .update(
-            {
-                "status": final_status,
-            }
+        final_status = ApplicationStatus.APPROVED
+        reason = (
+            "Documents processed and deterministic "
+            "validation completed successfully"
         )
-        .eq("id", str(application_id))
-        .execute()
+
+    # ---------------------------------------------------------
+    # 12. Persist final workflow transition
+    # ---------------------------------------------------------
+
+    transition_application(
+        application_id=application_id,
+        from_status=ApplicationStatus.PROCESSING,
+        to_status=final_status,
+        reason=reason,
+        supabase=supabase,
     )

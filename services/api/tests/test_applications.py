@@ -670,7 +670,16 @@ def test_ocr_pipeline_readable(monkeypatch):
         "Category: ST\n"
         "Annual family income: Rs. 2,00,000"
     )
-    assert application["status"] == "PROCESSING"
+    assert application["status"] == "APPROVED"
+    events = fake_supabase.database["workflow_events"]
+
+    assert len(events) == 2
+
+    assert events[0]["from_status"] == "SUBMITTED"
+    assert events[0]["to_status"] == "PROCESSING"
+
+    assert events[1]["from_status"] == "PROCESSING"
+    assert events[1]["to_status"] == "APPROVED"
 
 
 def test_ocr_pipeline_unreadable(monkeypatch):
