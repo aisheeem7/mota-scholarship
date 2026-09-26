@@ -12,6 +12,10 @@ from app.services.ai.extraction_provider import (
 from app.services.ai.extraction_service import (
     get_extraction_service,
 )
+from app.services.matching.matching_service import (
+    has_conflict,
+    match_documents,
+)
 from app.services.ocr.ocr_service import (
     OCRProcessingError,
     run_ocr,
@@ -56,6 +60,41 @@ def _persist_validation_results(
         ).execute()
 
 
+def _persist_match_results(
+    application_id: UUID,
+    match_results,
+    supabase: Client,
+) -> None:
+    """
+    Persist cross-document matching results.
+
+    The student_document_matches table stores:
+    - left_document_id
+    - right_document_id
+    - field_name
+    - similarity
+    - match_status
+    - reasoning
+    """
+
+    for result in match_results:
+        match_data = {
+            "application_id": str(application_id),
+            "left_document_id": result.left_document_id,
+            "right_document_id": result.right_document_id,
+            "field_name": result.field_name,
+            "similarity": result.similarity,
+            "match_status": result.match_status.value,
+            "reasoning": result.reasoning,
+        }
+
+        supabase.table(
+            "student_document_matches"
+        ).insert(
+            match_data
+        ).execute()
+
+
 def process_application_documents(
     application_id: UUID,
     supabase: Client,
@@ -71,15 +110,19 @@ def process_application_documents(
     4. Run LlamaCloud OCR.
     5. Persist OCR text and OCR status.
     6. Run configured extraction provider.
-    7. Validate extracted data against the canonical scheme config.
+    7. Validate extracted data against canonical scheme config.
     8. Persist deterministic validation results.
-    9. Update final application processing status.
+    9. Collect successful extractions.
+    10. Cross-match extracted values between documents.
+    11. Persist cross-document match results.
+    12. Route conflicts to FLAGGED_FOR_REVIEW.
+    13. Keep unreadable cases DEFICIENT.
 
     Extraction providers:
     - mock
     - gpt4o
 
-    Eligibility decisions are made by deterministic validation rules,
+    Eligibility decisions are made by deterministic rules,
     not by the AI extraction provider.
     """
 
@@ -101,7 +144,6 @@ def process_application_documents(
         return
 
     application = application_rows[0]
-
     scheme_id = application["scheme_id"]
 
     # ---------------------------------------------------------
@@ -144,7 +186,7 @@ def process_application_documents(
         return
 
     any_unreadable = False
-    any_extraction_failure = False
+    extracted_documents = []
 
     # ---------------------------------------------------------
     # 5. Process every document
@@ -157,7 +199,7 @@ def process_application_documents(
 
         try:
             # -------------------------------------------------
-            # 5a. Download from private storage
+            # 5a. Download document
             # -------------------------------------------------
 
             file_bytes = (
@@ -230,6 +272,18 @@ def process_application_documents(
                 supabase=supabase,
             )
 
+            # -------------------------------------------------
+            # 5h. Keep successful extraction for matching
+            # -------------------------------------------------
+
+            extracted_documents.append(
+                {
+                    "document_id": document_id,
+                    "document_type": document_type,
+                    "extraction": extraction,
+                }
+            )
+
         except OCRProcessingError:
             # -------------------------------------------------
             # OCR failed
@@ -252,8 +306,6 @@ def process_application_documents(
             # -------------------------------------------------
             # OCR succeeded but extraction failed
             # -------------------------------------------------
-
-            any_extraction_failure = True
 
             (
                 supabase.table("documents")
@@ -285,18 +337,58 @@ def process_application_documents(
             )
 
     # ---------------------------------------------------------
-    # 6. Final application status
+    # 6. Cross-document matching
+    # ---------------------------------------------------------
+
+    match_results = []
+
+    if len(extracted_documents) >= 2:
+        match_results = match_documents(
+            extracted_documents
+        )
+
+        # -----------------------------------------------------
+        # 6a. Persist match evidence
+        # -----------------------------------------------------
+
+        _persist_match_results(
+            application_id=application_id,
+            match_results=match_results,
+            supabase=supabase,
+        )
+
+    # ---------------------------------------------------------
+    # 7. Determine whether matching found a conflict
+    # ---------------------------------------------------------
+
+    matching_conflict = has_conflict(
+        match_results
+    )
+
+    # ---------------------------------------------------------
+    # 8. Final application status
     # ---------------------------------------------------------
 
     if any_unreadable:
         final_status = ApplicationStatus.DEFICIENT.value
+
+    elif matching_conflict:
+        # -----------------------------------------------------
+        # Cross-document mismatch requires human review.
+        # It is NOT treated as automatic rejection or fraud.
+        # -----------------------------------------------------
+        final_status = (
+            ApplicationStatus.FLAGGED_FOR_REVIEW.value
+        )
+
     else:
-        # Validation failures are intentionally not converted
-        # directly into workflow decisions here.
-        #
-        # Matching, risk scoring, and workflow transitions are
-        # the next stages.
+        # Validation failures, risk scoring, and full workflow
+        # transitions will be handled by the next stages.
         final_status = ApplicationStatus.PROCESSING.value
+
+    # ---------------------------------------------------------
+    # 9. Persist application status
+    # ---------------------------------------------------------
 
     (
         supabase.table("applications")
