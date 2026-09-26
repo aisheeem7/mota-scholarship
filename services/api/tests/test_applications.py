@@ -4,6 +4,10 @@ from app.core.supabase_client import get_supabase
 from app.main import app
 
 
+# ============================================================
+# FAKE SUPABASE
+# ============================================================
+
 class FakeResult:
     def __init__(self, data):
         self.data = data
@@ -42,7 +46,8 @@ class FakeQuery:
 
         for field, value in self.filters.items():
             rows = [
-                row for row in rows
+                row
+                for row in rows
                 if str(row.get(field)) == str(value)
             ]
 
@@ -79,13 +84,19 @@ class FakeSupabase:
             "applications": [],
             "documents": [],
             "dbt_mock_transactions": [],
+            "validations": [],
         }
+
         self.storage_data = {}
         self.storage = FakeStorage(self.storage_data)
 
     def table(self, table_name):
         return FakeQuery(self.database, table_name)
 
+
+# ============================================================
+# TEST SETUP
+# ============================================================
 
 fake_supabase = FakeSupabase()
 
@@ -105,7 +116,9 @@ def setup_function():
         "applications": [],
         "documents": [],
         "dbt_mock_transactions": [],
+        "validations": [],
     }
+
     fake_supabase.storage_data.clear()
 
 
@@ -337,3 +350,119 @@ def test_upload_document_invalid_content_type():
 
     assert response.status_code == 400
     assert response.json()["detail"] == "Unsupported content type"
+
+
+# ============================================================
+# VALIDATION TESTS
+# ============================================================
+
+def test_validations_list_found():
+    application_id = "00000000-0000-0000-0000-000000000030"
+
+    fake_supabase.database["validations"].append({
+        "application_id": application_id,
+        "rule_id": "RULE_001",
+        "passed": True,
+        "extracted_value": "120000",
+        "expected_condition": "Income evidence provided",
+        "reasoning": "Income certificate was readable",
+        "severity": "NONE",
+    })
+
+    response = client.get(
+        f"/api/v1/applications/{application_id}/validations"
+    )
+
+    assert response.status_code == 200
+
+    data = response.json()
+
+    assert len(data) == 1
+    assert data[0]["rule_id"] == "RULE_001"
+    assert data[0]["passed"] is True
+    assert data[0]["extracted_value"] == "120000"
+    assert data[0]["expected_condition"] == "Income evidence provided"
+    assert data[0]["reasoning"] == "Income certificate was readable"
+    assert data[0]["severity"] == "NONE"
+
+
+def test_validations_empty_list():
+    application_id = "00000000-0000-0000-0000-000000000031"
+
+    response = client.get(
+        f"/api/v1/applications/{application_id}/validations"
+    )
+
+    assert response.status_code == 200
+    assert response.json() == []
+
+
+def test_validation_passed_true():
+    application_id = "00000000-0000-0000-0000-000000000032"
+
+    fake_supabase.database["validations"].append({
+        "application_id": application_id,
+        "rule_id": "RULE_PASS",
+        "passed": True,
+        "extracted_value": "VALID",
+        "expected_condition": "Value must be valid",
+        "reasoning": "Condition satisfied",
+        "severity": "NONE",
+    })
+
+    response = client.get(
+        f"/api/v1/applications/{application_id}/validations"
+    )
+
+    assert response.status_code == 200
+    assert response.json()[0]["passed"] is True
+
+
+def test_validation_passed_false():
+    application_id = "00000000-0000-0000-0000-000000000033"
+
+    fake_supabase.database["validations"].append({
+        "application_id": application_id,
+        "rule_id": "RULE_FAIL",
+        "passed": False,
+        "extracted_value": "INVALID",
+        "expected_condition": "Value must be valid",
+        "reasoning": "Condition not satisfied",
+        "severity": "HIGH",
+    })
+
+    response = client.get(
+        f"/api/v1/applications/{application_id}/validations"
+    )
+
+    assert response.status_code == 200
+    assert response.json()[0]["passed"] is False
+
+
+def test_validation_passed_null():
+    application_id = "00000000-0000-0000-0000-000000000034"
+
+    fake_supabase.database["validations"].append({
+        "application_id": application_id,
+        "rule_id": "RULE_UNKNOWN",
+        "passed": None,
+        "extracted_value": None,
+        "expected_condition": None,
+        "reasoning": None,
+        "severity": None,
+    })
+
+    response = client.get(
+        f"/api/v1/applications/{application_id}/validations"
+    )
+
+    assert response.status_code == 200
+
+    data = response.json()
+
+    assert data[0]["rule_id"] == "RULE_UNKNOWN"
+    assert data[0]["passed"] is None
+    assert data[0]["extracted_value"] is None
+    assert data[0]["expected_condition"] is None
+    assert data[0]["reasoning"] is None
+    assert data[0]["severity"] is None

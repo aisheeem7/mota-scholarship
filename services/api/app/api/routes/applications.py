@@ -1,8 +1,16 @@
+from datetime import datetime, timezone
 from pathlib import Path
 from uuid import UUID, uuid4
-from datetime import datetime, timezone
 
-from fastapi import APIRouter, Depends, File, Form, HTTPException, UploadFile, status
+from fastapi import (
+    APIRouter,
+    Depends,
+    File,
+    Form,
+    HTTPException,
+    UploadFile,
+    status,
+)
 from supabase import Client
 
 from app.core.supabase_client import get_supabase
@@ -15,6 +23,7 @@ from app.schemas.application import (
     OCRStatus,
 )
 from app.schemas.dbt import DBTTransactionResponse
+from app.schemas.validation import ValidationResult
 
 router = APIRouter()
 
@@ -115,6 +124,37 @@ def get_application(
 
 
 # ============================================================
+# GET VALIDATIONS
+# ============================================================
+
+@router.get(
+    "/{application_id}/validations",
+    response_model=list[ValidationResult],
+)
+def get_validations(
+    application_id: UUID,
+    supabase: Client = Depends(get_supabase),
+):
+    try:
+        result = (
+            supabase.table("validations")
+            .select(
+                "rule_id, passed, extracted_value, "
+                "expected_condition, reasoning, severity"
+            )
+            .eq("application_id", str(application_id))
+            .execute()
+        )
+    except Exception:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Validation lookup failed",
+        )
+
+    return result.data
+
+
+# ============================================================
 # GET DBT TRANSACTION
 # ============================================================
 
@@ -130,7 +170,8 @@ def get_dbt_transaction(
         result = (
             supabase.table("dbt_mock_transactions")
             .select(
-                "application_id, status, transaction_id, amount, created_at"
+                "application_id, status, transaction_id, "
+                "amount, created_at"
             )
             .eq("application_id", str(application_id))
             .limit(1)
