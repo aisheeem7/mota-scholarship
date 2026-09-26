@@ -1022,3 +1022,63 @@ def test_ocr_pipeline_name_mismatch_is_flagged_for_review(monkeypatch):
     assert events[0]["to_status"] == "PROCESSING"
     assert events[1]["from_status"] == "PROCESSING"
     assert events[1]["to_status"] == "FLAGGED_FOR_REVIEW"
+def test_resubmit_application_success():
+    application_id = "eeeeeeee-eeee-eeee-eeee-eeeeeeeeeeee"
+
+    fake_supabase.database["applications"].append(
+        {
+            "id": application_id,
+            "student_id": "ffffffff-ffff-ffff-ffff-ffffffffffff",
+            "scheme_id": "PRE_MATRIC",
+            "status": "DEFICIENT",
+            "risk_score": 20,
+            "created_at": "2026-01-01T00:00:00+00:00",
+            "updated_at": "2026-01-01T00:00:00+00:00",
+        }
+    )
+
+    response = client.post(
+        f"/api/v1/applications/{application_id}/resubmit"
+    )
+
+    assert response.status_code == 200
+
+    data = response.json()
+
+    assert data["id"] == application_id
+    assert data["status"] == "RESUBMITTED"
+
+    events = fake_supabase.database["workflow_events"]
+
+    assert len(events) == 1
+    assert events[0]["application_id"] == application_id
+    assert events[0]["from_status"] == "DEFICIENT"
+    assert events[0]["to_status"] == "RESUBMITTED"
+
+
+def test_resubmit_application_invalid_status():
+    application_id = "12121212-1212-1212-1212-121212121212"
+
+    fake_supabase.database["applications"].append(
+        {
+            "id": application_id,
+            "student_id": "13131313-1313-1313-1313-131313131313",
+            "scheme_id": "PRE_MATRIC",
+            "status": "APPROVED",
+            "risk_score": 0,
+            "created_at": "2026-01-01T00:00:00+00:00",
+            "updated_at": "2026-01-01T00:00:00+00:00",
+        }
+    )
+
+    response = client.post(
+        f"/api/v1/applications/{application_id}/resubmit"
+    )
+
+    assert response.status_code == 400
+    assert "Invalid workflow transition" in response.json()["detail"]
+
+    assert fake_supabase.database.get(
+        "workflow_events",
+        [],
+    ) == []

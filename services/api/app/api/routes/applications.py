@@ -27,6 +27,9 @@ from app.schemas.dbt import DBTTransactionResponse
 from app.schemas.validation import ValidationResult
 from app.services.ocr.pipeline import process_application_documents
 from app.services.validation.validation_service import get_rule_name
+from app.services.workflow.workflow_service import (
+    transition_application,
+)
 
 
 router = APIRouter()
@@ -135,18 +138,41 @@ def process_application(
             detail="Application not found",
         )
 
+    application = application_result.data[0]
+
     # --------------------------------------------------------
-    # Mark application as PROCESSING
+    # Move application into PROCESSING through workflow service
+    # --------------------------------------------------------
+
+    current_status = ApplicationStatus(
+        application["status"]
+    )
+
+    try:
+        transition_application(
+            application_id=application_id,
+            from_status=current_status,
+            to_status=ApplicationStatus.PROCESSING,
+            reason="Document processing started",
+            supabase=supabase,
+        )
+    except ValueError as exc:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=str(exc),
+        )
+
+    # --------------------------------------------------------
+    # Update timestamp
     # --------------------------------------------------------
 
     now = datetime.now(timezone.utc)
 
     try:
-        update_result = (
+        timestamp_result = (
             supabase.table("applications")
             .update(
                 {
-                    "status": ApplicationStatus.PROCESSING.value,
                     "updated_at": now.isoformat(),
                 }
             )
@@ -159,11 +185,18 @@ def process_application(
             detail="Application processing could not be started",
         )
 
-    if not update_result.data:
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail="Application processing could not be started",
-        )
+    # --------------------------------------------------------
+    # Build response reflecting PROCESSING state
+    # --------------------------------------------------------
+
+    if timestamp_result.data:
+        response_application = timestamp_result.data[0]
+    else:
+        response_application = {
+            **application,
+            "status": ApplicationStatus.PROCESSING.value,
+            "updated_at": now.isoformat(),
+        }
 
     # --------------------------------------------------------
     # Start OCR pipeline in background
@@ -175,7 +208,109 @@ def process_application(
         supabase,
     )
 
-    return update_result.data[0]
+    return response_application
+
+
+# ============================================================
+# RESUBMIT APPLICATION
+# ============================================================
+
+@router.post(
+    "/{application_id}/resubmit",
+    response_model=ApplicationResponse,
+)
+def resubmit_application(
+    application_id: UUID,
+    supabase: Client = Depends(get_supabase),
+):
+    # --------------------------------------------------------
+    # Verify application exists
+    # --------------------------------------------------------
+
+    try:
+        application_result = (
+            supabase.table("applications")
+            .select(
+                "id, student_id, scheme_id, status, "
+                "risk_score, created_at, updated_at"
+            )
+            .eq("id", str(application_id))
+            .limit(1)
+            .execute()
+        )
+    except Exception:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Application lookup failed",
+        )
+
+    if not application_result.data:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Application not found",
+        )
+
+    application = application_result.data[0]
+
+    current_status = ApplicationStatus(
+        application["status"]
+    )
+
+    # --------------------------------------------------------
+    # DEFICIENT -> RESUBMITTED
+    # --------------------------------------------------------
+
+    try:
+        transition_application(
+            application_id=application_id,
+            from_status=current_status,
+            to_status=ApplicationStatus.RESUBMITTED,
+            reason="Applicant resubmitted application",
+            supabase=supabase,
+        )
+    except ValueError as exc:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=str(exc),
+        )
+
+    # --------------------------------------------------------
+    # Update timestamp
+    # --------------------------------------------------------
+
+    now = datetime.now(timezone.utc)
+
+    try:
+        timestamp_result = (
+            supabase.table("applications")
+            .update(
+                {
+                    "updated_at": now.isoformat(),
+                }
+            )
+            .eq("id", str(application_id))
+            .execute()
+        )
+    except Exception:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Application resubmission could not be completed",
+        )
+
+    # --------------------------------------------------------
+    # Build response reflecting RESUBMITTED state
+    # --------------------------------------------------------
+
+    if timestamp_result.data:
+        response_application = timestamp_result.data[0]
+    else:
+        response_application = {
+            **application,
+            "status": ApplicationStatus.RESUBMITTED.value,
+            "updated_at": now.isoformat(),
+        }
+
+    return response_application
 
 
 # ============================================================
