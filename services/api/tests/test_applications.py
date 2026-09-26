@@ -823,3 +823,202 @@ def test_extract_document_empty_text():
         raise AssertionError(
             "Expected ExtractionError for empty OCR text"
         )
+def test_ocr_pipeline_validation_failure_is_deficient(monkeypatch):
+    application_id = "77777777-7777-7777-7777-777777777777"
+    document_id = "88888888-8888-8888-8888-888888888888"
+
+    fake_supabase.database["applications"].append(
+        {
+            "id": application_id,
+            "student_id": "99999999-9999-9999-9999-999999999999",
+            "scheme_id": "PRE_MATRIC",
+            "status": "SUBMITTED",
+            "risk_score": None,
+            "created_at": "2026-01-01T00:00:00+00:00",
+            "updated_at": "2026-01-01T00:00:00+00:00",
+        }
+    )
+
+    storage_path = (
+        f"applications/{application_id}/"
+        f"{document_id}-INCOME_CERTIFICATE.pdf"
+    )
+
+    fake_supabase.database["documents"].append(
+        {
+            "id": document_id,
+            "application_id": application_id,
+            "document_type": "INCOME_CERTIFICATE",
+            "storage_path": storage_path,
+            "ocr_status": "PROCESSING",
+        }
+    )
+
+    fake_supabase.storage_data[storage_path] = {
+        "bytes": b"fake pdf content",
+    }
+
+    monkeypatch.setattr(
+        ocr_pipeline,
+        "run_ocr",
+        lambda file_bytes, filename: (
+            "Student Name: Rahul Das\n"
+            "Category: ST\n"
+            "Annual family income: Rs. 3,20,000"
+        ),
+    )
+
+    class FakeExtractionService:
+        def extract_document(self, text, document_type):
+            return DocumentExtraction(
+                student_name="Rahul Das",
+                category="ST",
+                annual_income=320000,
+                academic_level="X",
+                institution=None,
+                course=None,
+                document_number="INC99999",
+                confidence=0.96,
+                reasoning="Income value extracted from OCR text.",
+                evidence=[
+                    "Annual family income: Rs. 3,20,000",
+                ],
+            )
+
+    monkeypatch.setattr(
+        ocr_pipeline,
+        "get_extraction_service",
+        lambda: FakeExtractionService(),
+    )
+
+    ocr_pipeline.process_application_documents(
+        UUID(application_id),
+        fake_supabase,
+    )
+
+    application = fake_supabase.database["applications"][0]
+
+    assert application["status"] == "DEFICIENT"
+    assert application["risk_score"] == 0
+
+    events = fake_supabase.database["workflow_events"]
+
+    assert len(events) == 2
+    assert events[0]["from_status"] == "SUBMITTED"
+    assert events[0]["to_status"] == "PROCESSING"
+    assert events[1]["from_status"] == "PROCESSING"
+    assert events[1]["to_status"] == "DEFICIENT"
+
+
+def test_ocr_pipeline_name_mismatch_is_flagged_for_review(monkeypatch):
+    application_id = "aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa"
+    document_id_1 = "bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb"
+    document_id_2 = "cccccccc-cccc-cccc-cccc-cccccccccccc"
+
+    fake_supabase.database["applications"].append(
+        {
+            "id": application_id,
+            "student_id": "dddddddd-dddd-dddd-dddd-dddddddddddd",
+            "scheme_id": "PRE_MATRIC",
+            "status": "SUBMITTED",
+            "risk_score": None,
+            "created_at": "2026-01-01T00:00:00+00:00",
+            "updated_at": "2026-01-01T00:00:00+00:00",
+        }
+    )
+
+    storage_path_1 = (
+        f"applications/{application_id}/"
+        f"{document_id_1}-INCOME_CERTIFICATE.pdf"
+    )
+
+    storage_path_2 = (
+        f"applications/{application_id}/"
+        f"{document_id_2}-IDENTITY_DOCUMENT.pdf"
+    )
+
+    fake_supabase.database["documents"].extend(
+        [
+            {
+                "id": document_id_1,
+                "application_id": application_id,
+                "document_type": "INCOME_CERTIFICATE",
+                "storage_path": storage_path_1,
+                "ocr_status": "PROCESSING",
+            },
+            {
+                "id": document_id_2,
+                "application_id": application_id,
+                "document_type": "IDENTITY_DOCUMENT",
+                "storage_path": storage_path_2,
+                "ocr_status": "PROCESSING",
+            },
+        ]
+    )
+
+    fake_supabase.storage_data[storage_path_1] = {
+        "bytes": b"income pdf",
+    }
+
+    fake_supabase.storage_data[storage_path_2] = {
+        "bytes": b"identity pdf",
+    }
+
+    monkeypatch.setattr(
+        ocr_pipeline,
+        "run_ocr",
+        lambda file_bytes, filename: "Readable document text",
+    )
+
+    class FakeExtractionService:
+        def extract_document(self, text, document_type):
+            if document_type == "INCOME_CERTIFICATE":
+                return DocumentExtraction(
+                    student_name="Rahul Das",
+                    category="ST",
+                    annual_income=180000,
+                    academic_level="X",
+                    institution=None,
+                    course=None,
+                    document_number="INC001",
+                    confidence=0.96,
+                    reasoning="Income certificate extracted successfully.",
+                    evidence=["Student Name: Rahul Das"],
+                )
+
+            return DocumentExtraction(
+                student_name="Amit Das",
+                category="ST",
+                annual_income=180000,
+                academic_level="X",
+                institution=None,
+                course=None,
+                document_number="ID001",
+                confidence=0.96,
+                reasoning="Identity document extracted successfully.",
+                evidence=["Student Name: Amit Das"],
+            )
+
+    monkeypatch.setattr(
+        ocr_pipeline,
+        "get_extraction_service",
+        lambda: FakeExtractionService(),
+    )
+
+    ocr_pipeline.process_application_documents(
+        UUID(application_id),
+        fake_supabase,
+    )
+
+    application = fake_supabase.database["applications"][0]
+
+    assert application["status"] == "FLAGGED_FOR_REVIEW"
+    assert application["risk_score"] == 30
+
+    events = fake_supabase.database["workflow_events"]
+
+    assert len(events) == 2
+    assert events[0]["from_status"] == "SUBMITTED"
+    assert events[0]["to_status"] == "PROCESSING"
+    assert events[1]["from_status"] == "PROCESSING"
+    assert events[1]["to_status"] == "FLAGGED_FOR_REVIEW"
