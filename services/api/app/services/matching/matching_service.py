@@ -18,8 +18,6 @@ MATCHABLE_FIELDS = (
 def _normalize_text(value: str) -> str:
     """
     Normalize text for deterministic comparison.
-
-    Case, spaces, and punctuation are ignored.
     """
 
     return re.sub(
@@ -33,9 +31,6 @@ def _compare_text(
     left_value: str,
     right_value: str,
 ) -> tuple[MatchStatus, str, float]:
-    """
-    Compare two text values.
-    """
 
     left_normalized = _normalize_text(left_value)
     right_normalized = _normalize_text(right_value)
@@ -68,9 +63,6 @@ def _compare_income(
     left_value: float,
     right_value: float,
 ) -> tuple[MatchStatus, str, float]:
-    """
-    Compare two extracted annual income values.
-    """
 
     if float(left_value) == float(right_value):
         return (
@@ -91,9 +83,6 @@ def _compare_field(
     left_value,
     right_value,
 ) -> tuple[MatchStatus, str, float]:
-    """
-    Compare one supported field.
-    """
 
     if field_name in {
         "student_name",
@@ -119,25 +108,14 @@ def match_documents(
     documents: list[dict],
 ) -> list[DocumentMatchResult]:
     """
-    Cross-match extracted information between documents.
-
-    Expected input:
-
-    [
-        {
-            "document_id": "...",
-            "document_type": "...",
-            "extraction": DocumentExtraction(...),
-        },
-        ...
-    ]
+    Compare extracted information across documents.
 
     Currently matched fields:
     - student_name
     - category
     - annual_income
 
-    Missing fields are skipped rather than treated as conflicts.
+    Missing values are skipped.
     """
 
     results: list[DocumentMatchResult] = []
@@ -167,7 +145,6 @@ def match_documents(
                 None,
             )
 
-            # Missing evidence is not automatically a mismatch.
             if left_value is None or right_value is None:
                 continue
 
