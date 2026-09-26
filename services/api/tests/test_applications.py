@@ -1,11 +1,15 @@
+from uuid import UUID
+
 from fastapi.testclient import TestClient
 
 from app.core.supabase_client import get_supabase
 from app.main import app
-from app.services.ocr import pipeline as ocr_pipeline
-from uuid import UUID
-from app.services.ai import extraction_service
 from app.schemas.extraction import DocumentExtraction
+from app.services.ai import extraction_service
+from app.services.ocr import pipeline as ocr_pipeline
+from app.services.ai.gpt4o_provider import GPT4oExtractionProvider
+from app.services.ai import gpt4o_provider
+
 
 # ============================================================
 # FAKE SUPABASE
@@ -37,12 +41,17 @@ class FakeQuery:
     def insert(self, data):
         self.pending_insert = data
         return self
+
     def update(self, data):
         self.pending_update = data
         return self
 
     def execute(self):
         table = self.database.setdefault(self.table_name, [])
+
+        # --------------------------------------------------------
+        # UPDATE
+        # --------------------------------------------------------
         if self.pending_update is not None:
             rows = table
 
@@ -58,11 +67,17 @@ class FakeQuery:
 
             return FakeResult(rows)
 
+        # --------------------------------------------------------
+        # INSERT
+        # --------------------------------------------------------
         if self.pending_insert is not None:
             row = dict(self.pending_insert)
             table.append(row)
             return FakeResult([row])
 
+        # --------------------------------------------------------
+        # SELECT
+        # --------------------------------------------------------
         rows = table
 
         for field, value in self.filters.items():
@@ -88,6 +103,7 @@ class FakeStorageBucket:
     def remove(self, paths):
         for path in paths:
             self.storage.pop(path, None)
+
     def download(self, path):
         return self.storage[path]["bytes"]
 
@@ -158,9 +174,11 @@ def test_health():
 def test_create_application():
     student_id = "00000000-0000-0000-0000-000000000001"
 
-    fake_supabase.database["students"].append({
-        "id": student_id,
-    })
+    fake_supabase.database["students"].append(
+        {
+            "id": student_id,
+        }
+    )
 
     payload = {
         "student_id": student_id,
@@ -184,9 +202,11 @@ def test_create_application():
 def test_get_application():
     student_id = "00000000-0000-0000-0000-000000000002"
 
-    fake_supabase.database["students"].append({
-        "id": student_id,
-    })
+    fake_supabase.database["students"].append(
+        {
+            "id": student_id,
+        }
+    )
 
     payload = {
         "student_id": student_id,
@@ -266,13 +286,15 @@ def test_dbt_transaction_not_found():
 def test_dbt_transaction_success():
     application_id = "00000000-0000-0000-0000-000000000011"
 
-    fake_supabase.database["dbt_mock_transactions"].append({
-        "application_id": application_id,
-        "status": "SUCCESS",
-        "transaction_id": "TXN-001",
-        "amount": 2500,
-        "created_at": "2026-09-25T00:00:00Z",
-    })
+    fake_supabase.database["dbt_mock_transactions"].append(
+        {
+            "application_id": application_id,
+            "status": "SUCCESS",
+            "transaction_id": "TXN-001",
+            "amount": 2500,
+            "created_at": "2026-09-25T00:00:00Z",
+        }
+    )
 
     response = client.get(
         f"/api/v1/applications/{application_id}/dbt-transaction"
@@ -295,9 +317,11 @@ def test_dbt_transaction_success():
 def test_upload_document_success():
     application_id = "00000000-0000-0000-0000-000000000020"
 
-    fake_supabase.database["applications"].append({
-        "id": application_id,
-    })
+    fake_supabase.database["applications"].append(
+        {
+            "id": application_id,
+        }
+    )
 
     response = client.post(
         f"/api/v1/applications/{application_id}/documents",
@@ -328,9 +352,11 @@ def test_upload_document_success():
 def test_upload_document_invalid_extension():
     application_id = "00000000-0000-0000-0000-000000000021"
 
-    fake_supabase.database["applications"].append({
-        "id": application_id,
-    })
+    fake_supabase.database["applications"].append(
+        {
+            "id": application_id,
+        }
+    )
 
     response = client.post(
         f"/api/v1/applications/{application_id}/documents",
@@ -353,9 +379,11 @@ def test_upload_document_invalid_extension():
 def test_upload_document_invalid_content_type():
     application_id = "00000000-0000-0000-0000-000000000022"
 
-    fake_supabase.database["applications"].append({
-        "id": application_id,
-    })
+    fake_supabase.database["applications"].append(
+        {
+            "id": application_id,
+        }
+    )
 
     response = client.post(
         f"/api/v1/applications/{application_id}/documents",
@@ -382,15 +410,17 @@ def test_upload_document_invalid_content_type():
 def test_validations_list_found():
     application_id = "00000000-0000-0000-0000-000000000030"
 
-    fake_supabase.database["validations"].append({
-        "application_id": application_id,
-        "rule_id": "RULE_001",
-        "passed": True,
-        "extracted_value": "120000",
-        "expected_condition": "Income evidence provided",
-        "reasoning": "Income certificate was readable",
-        "severity": "NONE",
-    })
+    fake_supabase.database["validations"].append(
+        {
+            "application_id": application_id,
+            "rule_id": "RULE_001",
+            "passed": True,
+            "extracted_value": "120000",
+            "expected_condition": "Income evidence provided",
+            "reasoning": "Income certificate was readable",
+            "severity": "NONE",
+        }
+    )
 
     response = client.get(
         f"/api/v1/applications/{application_id}/validations"
@@ -423,15 +453,17 @@ def test_validations_empty_list():
 def test_validation_passed_true():
     application_id = "00000000-0000-0000-0000-000000000032"
 
-    fake_supabase.database["validations"].append({
-        "application_id": application_id,
-        "rule_id": "RULE_PASS",
-        "passed": True,
-        "extracted_value": "VALID",
-        "expected_condition": "Value must be valid",
-        "reasoning": "Condition satisfied",
-        "severity": "NONE",
-    })
+    fake_supabase.database["validations"].append(
+        {
+            "application_id": application_id,
+            "rule_id": "RULE_PASS",
+            "passed": True,
+            "extracted_value": "VALID",
+            "expected_condition": "Value must be valid",
+            "reasoning": "Condition satisfied",
+            "severity": "NONE",
+        }
+    )
 
     response = client.get(
         f"/api/v1/applications/{application_id}/validations"
@@ -444,15 +476,17 @@ def test_validation_passed_true():
 def test_validation_passed_false():
     application_id = "00000000-0000-0000-0000-000000000033"
 
-    fake_supabase.database["validations"].append({
-        "application_id": application_id,
-        "rule_id": "RULE_FAIL",
-        "passed": False,
-        "extracted_value": "INVALID",
-        "expected_condition": "Value must be valid",
-        "reasoning": "Condition not satisfied",
-        "severity": "HIGH",
-    })
+    fake_supabase.database["validations"].append(
+        {
+            "application_id": application_id,
+            "rule_id": "RULE_FAIL",
+            "passed": False,
+            "extracted_value": "INVALID",
+            "expected_condition": "Value must be valid",
+            "reasoning": "Condition not satisfied",
+            "severity": "HIGH",
+        }
+    )
 
     response = client.get(
         f"/api/v1/applications/{application_id}/validations"
@@ -465,15 +499,17 @@ def test_validation_passed_false():
 def test_validation_passed_null():
     application_id = "00000000-0000-0000-0000-000000000034"
 
-    fake_supabase.database["validations"].append({
-        "application_id": application_id,
-        "rule_id": "RULE_UNKNOWN",
-        "passed": None,
-        "extracted_value": None,
-        "expected_condition": None,
-        "reasoning": None,
-        "severity": None,
-    })
+    fake_supabase.database["validations"].append(
+        {
+            "application_id": application_id,
+            "rule_id": "RULE_UNKNOWN",
+            "passed": None,
+            "extracted_value": None,
+            "expected_condition": None,
+            "reasoning": None,
+            "severity": None,
+        }
+    )
 
     response = client.get(
         f"/api/v1/applications/{application_id}/validations"
@@ -489,6 +525,8 @@ def test_validation_passed_null():
     assert data[0]["expected_condition"] is None
     assert data[0]["reasoning"] is None
     assert data[0]["severity"] is None
+
+
 # ============================================================
 # PROCESS TESTS
 # ============================================================
@@ -496,15 +534,17 @@ def test_validation_passed_null():
 def test_process_application_success():
     application_id = "00000000-0000-0000-0000-000000000040"
 
-    fake_supabase.database["applications"].append({
-        "id": application_id,
-        "student_id": "00000000-0000-0000-0000-000000000001",
-        "scheme_id": "PRE_MATRIC",
-        "status": "SUBMITTED",
-        "risk_score": None,
-        "created_at": "2026-09-25T00:00:00Z",
-        "updated_at": "2026-09-25T00:00:00Z",
-    })
+    fake_supabase.database["applications"].append(
+        {
+            "id": application_id,
+            "student_id": "00000000-0000-0000-0000-000000000001",
+            "scheme_id": "PRE_MATRIC",
+            "status": "SUBMITTED",
+            "risk_score": None,
+            "created_at": "2026-09-25T00:00:00Z",
+            "updated_at": "2026-09-25T00:00:00Z",
+        }
+    )
 
     response = client.post(
         f"/api/v1/applications/{application_id}/process"
@@ -527,6 +567,12 @@ def test_process_application_not_found():
 
     assert response.status_code == 404
     assert response.json()["detail"] == "Application not found"
+
+
+# ============================================================
+# OCR PIPELINE TESTS
+# ============================================================
+
 def test_ocr_pipeline_readable(monkeypatch):
     application_id = "11111111-1111-1111-1111-111111111111"
     document_id = "22222222-2222-2222-2222-222222222222"
@@ -562,21 +608,68 @@ def test_ocr_pipeline_readable(monkeypatch):
         "bytes": b"fake pdf content",
     }
 
+    # --------------------------------------------------------
+    # Mock OCR
+    # --------------------------------------------------------
     monkeypatch.setattr(
         ocr_pipeline,
         "run_ocr",
-        lambda file_bytes, filename: "Annual family income: Rs. 200000",
+        lambda file_bytes, filename: (
+            "Student Name: Rahul Das\n"
+            "Category: ST\n"
+            "Annual family income: Rs. 2,00,000"
+        ),
     )
 
+    # --------------------------------------------------------
+    # Mock extraction service
+    # --------------------------------------------------------
+    class FakeExtractionService:
+        def extract_document(self, text, document_type):
+            return DocumentExtraction(
+                student_name="Rahul Das",
+                category="ST",
+                annual_income=200000,
+                academic_level="X",
+                institution=None,
+                course=None,
+                document_number="INC12345",
+                confidence=0.96,
+                reasoning=(
+                    "Values are explicitly present in the OCR text."
+                ),
+                evidence=[
+                    "Student Name: Rahul Das",
+                    "Category: ST",
+                    "Annual family income: Rs. 2,00,000",
+                ],
+            )
+
+    monkeypatch.setattr(
+        ocr_pipeline,
+        "get_extraction_service",
+        lambda: FakeExtractionService(),
+    )
+    # --------------------------------------------------------
+    # Run pipeline
+    # --------------------------------------------------------
     ocr_pipeline.process_application_documents(
         UUID(application_id),
         fake_supabase,
     )
 
+    # --------------------------------------------------------
+    # Check results
+    # --------------------------------------------------------
     document = fake_supabase.database["documents"][0]
     application = fake_supabase.database["applications"][0]
 
     assert document["ocr_status"] == "READABLE"
+    assert document["ocr_text"] == (
+        "Student Name: Rahul Das\n"
+        "Category: ST\n"
+        "Annual family income: Rs. 2,00,000"
+    )
     assert application["status"] == "PROCESSING"
 
 
@@ -615,6 +708,9 @@ def test_ocr_pipeline_unreadable(monkeypatch):
         "bytes": b"fake pdf content",
     }
 
+    # --------------------------------------------------------
+    # Mock OCR failure
+    # --------------------------------------------------------
     def fake_ocr(file_bytes, filename):
         raise ocr_pipeline.OCRProcessingError(
             "OCR failed"
@@ -626,16 +722,24 @@ def test_ocr_pipeline_unreadable(monkeypatch):
         fake_ocr,
     )
 
+    # --------------------------------------------------------
+    # Run pipeline
+    # --------------------------------------------------------
     ocr_pipeline.process_application_documents(
         UUID(application_id),
         fake_supabase,
     )
 
+    # --------------------------------------------------------
+    # Check results
+    # --------------------------------------------------------
     document = fake_supabase.database["documents"][0]
     application = fake_supabase.database["applications"][0]
 
     assert document["ocr_status"] == "UNREADABLE"
     assert application["status"] == "DEFICIENT"
+
+
 # ============================================================
 # GPT-4o EXTRACTION TESTS
 # ============================================================
@@ -651,7 +755,9 @@ def test_extract_document_success(monkeypatch):
             course=None,
             document_number="INC12345",
             confidence=0.96,
-            reasoning="The income is explicitly stated in the document.",
+            reasoning=(
+                "The income is explicitly stated in the document."
+            ),
             evidence=[
                 "Annual family income: Rs. 2,00,000"
             ],
@@ -677,12 +783,14 @@ def test_extract_document_success(monkeypatch):
         chat = FakeChat()
 
     monkeypatch.setattr(
-        extraction_service,
+        gpt4o_provider,
         "OpenAI",
         lambda api_key: FakeClient(),
     )
 
-    result = extraction_service.extract_document(
+    provider = GPT4oExtractionProvider()
+
+    result = provider.extract(
         text="Annual family income: Rs. 2,00,000",
         document_type="INCOME_CERTIFICATE",
     )
