@@ -4,6 +4,8 @@ from app.core.supabase_client import get_supabase
 from app.main import app
 from app.services.ocr import pipeline as ocr_pipeline
 from uuid import UUID
+from app.services.ai import extraction_service
+from app.schemas.extraction import DocumentExtraction
 
 # ============================================================
 # FAKE SUPABASE
@@ -634,3 +636,73 @@ def test_ocr_pipeline_unreadable(monkeypatch):
 
     assert document["ocr_status"] == "UNREADABLE"
     assert application["status"] == "DEFICIENT"
+# ============================================================
+# GPT-4o EXTRACTION TESTS
+# ============================================================
+
+def test_extract_document_success(monkeypatch):
+    class FakeMessage:
+        parsed = DocumentExtraction(
+            student_name="Rahul Das",
+            category="ST",
+            annual_income=200000,
+            academic_level="X",
+            institution=None,
+            course=None,
+            document_number="INC12345",
+            confidence=0.96,
+            reasoning="The income is explicitly stated in the document.",
+            evidence=[
+                "Annual family income: Rs. 2,00,000"
+            ],
+        )
+
+    class FakeCompletion:
+        choices = [
+            type(
+                "Choice",
+                (),
+                {"message": FakeMessage()},
+            )()
+        ]
+
+    class FakeCompletions:
+        def parse(self, **kwargs):
+            return FakeCompletion()
+
+    class FakeChat:
+        completions = FakeCompletions()
+
+    class FakeClient:
+        chat = FakeChat()
+
+    monkeypatch.setattr(
+        extraction_service,
+        "OpenAI",
+        lambda api_key: FakeClient(),
+    )
+
+    result = extraction_service.extract_document(
+        text="Annual family income: Rs. 2,00,000",
+        document_type="INCOME_CERTIFICATE",
+    )
+
+    assert isinstance(result, DocumentExtraction)
+    assert result.student_name == "Rahul Das"
+    assert result.category == "ST"
+    assert result.annual_income == 200000
+    assert result.confidence == 0.96
+
+
+def test_extract_document_empty_text():
+    try:
+        extraction_service.extract_document(
+            text="",
+            document_type="INCOME_CERTIFICATE",
+        )
+    except extraction_service.ExtractionError as exc:
+        assert str(exc) == "OCR text is empty"
+    else:
+        raise AssertionError(
+            "Expected ExtractionError for empty OCR text"
+        )
