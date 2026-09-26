@@ -48,3 +48,4 @@ websockets==15.0.1
 yarl==1.25.1
 pytest==9.1.1
 pytest==9.1.1
+llama-cloud>=2.8

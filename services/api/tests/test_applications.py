@@ -2,7 +2,8 @@ from fastapi.testclient import TestClient
 
 from app.core.supabase_client import get_supabase
 from app.main import app
-
+from app.services.ocr import pipeline as ocr_pipeline
+from uuid import UUID
 
 # ============================================================
 # FAKE SUPABASE
@@ -19,6 +20,7 @@ class FakeQuery:
         self.table_name = table_name
         self.filters = {}
         self.pending_insert = None
+        self.pending_update = None
 
     def select(self, *fields):
         return self
@@ -33,9 +35,26 @@ class FakeQuery:
     def insert(self, data):
         self.pending_insert = data
         return self
+    def update(self, data):
+        self.pending_update = data
+        return self
 
     def execute(self):
         table = self.database.setdefault(self.table_name, [])
+        if self.pending_update is not None:
+            rows = table
+
+            for field, value in self.filters.items():
+                rows = [
+                    row
+                    for row in rows
+                    if str(row.get(field)) == str(value)
+                ]
+
+            for row in rows:
+                row.update(self.pending_update)
+
+            return FakeResult(rows)
 
         if self.pending_insert is not None:
             row = dict(self.pending_insert)
@@ -67,6 +86,8 @@ class FakeStorageBucket:
     def remove(self, paths):
         for path in paths:
             self.storage.pop(path, None)
+    def download(self, path):
+        return self.storage[path]["bytes"]
 
 
 class FakeStorage:
@@ -466,3 +487,150 @@ def test_validation_passed_null():
     assert data[0]["expected_condition"] is None
     assert data[0]["reasoning"] is None
     assert data[0]["severity"] is None
+# ============================================================
+# PROCESS TESTS
+# ============================================================
+
+def test_process_application_success():
+    application_id = "00000000-0000-0000-0000-000000000040"
+
+    fake_supabase.database["applications"].append({
+        "id": application_id,
+        "student_id": "00000000-0000-0000-0000-000000000001",
+        "scheme_id": "PRE_MATRIC",
+        "status": "SUBMITTED",
+        "risk_score": None,
+        "created_at": "2026-09-25T00:00:00Z",
+        "updated_at": "2026-09-25T00:00:00Z",
+    })
+
+    response = client.post(
+        f"/api/v1/applications/{application_id}/process"
+    )
+
+    assert response.status_code == 202
+
+    data = response.json()
+
+    assert data["id"] == application_id
+    assert data["status"] == "PROCESSING"
+
+
+def test_process_application_not_found():
+    application_id = "00000000-0000-0000-0000-000000000041"
+
+    response = client.post(
+        f"/api/v1/applications/{application_id}/process"
+    )
+
+    assert response.status_code == 404
+    assert response.json()["detail"] == "Application not found"
+def test_ocr_pipeline_readable(monkeypatch):
+    application_id = "11111111-1111-1111-1111-111111111111"
+    document_id = "22222222-2222-2222-2222-222222222222"
+
+    fake_supabase.database["applications"].append(
+        {
+            "id": application_id,
+            "student_id": "33333333-3333-3333-3333-333333333333",
+            "scheme_id": "PRE_MATRIC",
+            "status": "SUBMITTED",
+            "risk_score": None,
+            "created_at": "2026-01-01T00:00:00+00:00",
+            "updated_at": "2026-01-01T00:00:00+00:00",
+        }
+    )
+
+    storage_path = (
+        f"applications/{application_id}/"
+        f"{document_id}-INCOME_CERTIFICATE.pdf"
+    )
+
+    fake_supabase.database["documents"].append(
+        {
+            "id": document_id,
+            "application_id": application_id,
+            "document_type": "INCOME_CERTIFICATE",
+            "storage_path": storage_path,
+            "ocr_status": "PROCESSING",
+        }
+    )
+
+    fake_supabase.storage_data[storage_path] = {
+        "bytes": b"fake pdf content",
+    }
+
+    monkeypatch.setattr(
+        ocr_pipeline,
+        "run_ocr",
+        lambda file_bytes, filename: "Annual family income: Rs. 200000",
+    )
+
+    ocr_pipeline.process_application_documents(
+        UUID(application_id),
+        fake_supabase,
+    )
+
+    document = fake_supabase.database["documents"][0]
+    application = fake_supabase.database["applications"][0]
+
+    assert document["ocr_status"] == "READABLE"
+    assert application["status"] == "PROCESSING"
+
+
+def test_ocr_pipeline_unreadable(monkeypatch):
+    application_id = "44444444-4444-4444-4444-444444444444"
+    document_id = "55555555-5555-5555-5555-555555555555"
+
+    fake_supabase.database["applications"].append(
+        {
+            "id": application_id,
+            "student_id": "66666666-6666-6666-6666-666666666666",
+            "scheme_id": "PRE_MATRIC",
+            "status": "SUBMITTED",
+            "risk_score": None,
+            "created_at": "2026-01-01T00:00:00+00:00",
+            "updated_at": "2026-01-01T00:00:00+00:00",
+        }
+    )
+
+    storage_path = (
+        f"applications/{application_id}/"
+        f"{document_id}-INCOME_CERTIFICATE.pdf"
+    )
+
+    fake_supabase.database["documents"].append(
+        {
+            "id": document_id,
+            "application_id": application_id,
+            "document_type": "INCOME_CERTIFICATE",
+            "storage_path": storage_path,
+            "ocr_status": "PROCESSING",
+        }
+    )
+
+    fake_supabase.storage_data[storage_path] = {
+        "bytes": b"fake pdf content",
+    }
+
+    def fake_ocr(file_bytes, filename):
+        raise ocr_pipeline.OCRProcessingError(
+            "OCR failed"
+        )
+
+    monkeypatch.setattr(
+        ocr_pipeline,
+        "run_ocr",
+        fake_ocr,
+    )
+
+    ocr_pipeline.process_application_documents(
+        UUID(application_id),
+        fake_supabase,
+    )
+
+    document = fake_supabase.database["documents"][0]
+    application = fake_supabase.database["applications"][0]
+
+    assert document["ocr_status"] == "UNREADABLE"
+    assert application["status"] == "DEFICIENT"

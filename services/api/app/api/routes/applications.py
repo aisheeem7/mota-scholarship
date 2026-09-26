@@ -1,3 +1,5 @@
+from fastapi import BackgroundTasks
+from app.services.ocr.pipeline import process_application_documents
 from datetime import datetime, timezone
 from pathlib import Path
 from uuid import UUID, uuid4
@@ -83,6 +85,94 @@ def create_application(
         )
 
     return result.data[0]
+
+
+# ============================================================
+# PROCESS APPLICATION
+# ============================================================
+
+# ============================================================
+# PROCESS APPLICATION
+# ============================================================
+
+@router.post(
+    "/{application_id}/process",
+    response_model=ApplicationResponse,
+    status_code=status.HTTP_202_ACCEPTED,
+)
+def process_application(
+    application_id: UUID,
+    background_tasks: BackgroundTasks,
+    supabase: Client = Depends(get_supabase),
+):
+    # --------------------------------------------------------
+    # Verify application exists
+    # --------------------------------------------------------
+
+    try:
+        application_result = (
+            supabase.table("applications")
+            .select(
+                "id, student_id, scheme_id, status, "
+                "risk_score, created_at, updated_at"
+            )
+            .eq("id", str(application_id))
+            .limit(1)
+            .execute()
+        )
+    except Exception:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Application lookup failed",
+        )
+
+    if not application_result.data:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Application not found",
+        )
+
+    # --------------------------------------------------------
+    # Mark application as PROCESSING
+    # --------------------------------------------------------
+
+    now = datetime.now(timezone.utc)
+
+    try:
+        update_result = (
+            supabase.table("applications")
+            .update(
+                {
+                    "status": ApplicationStatus.PROCESSING.value,
+                    "updated_at": now.isoformat(),
+                }
+            )
+            .eq("id", str(application_id))
+            .execute()
+        )
+    except Exception:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Application processing could not be started",
+        )
+
+    if not update_result.data:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Application processing could not be started",
+        )
+
+    # --------------------------------------------------------
+    # Start OCR pipeline in background
+    # --------------------------------------------------------
+
+    background_tasks.add_task(
+        process_application_documents,
+        application_id,
+        supabase,
+    )
+
+    return update_result.data[0]
 
 
 # ============================================================
@@ -305,7 +395,6 @@ async def upload_document(
         )
 
     except Exception:
-        # Clean up storage if database insertion fails
         try:
             supabase.storage.from_(STORAGE_BUCKET).remove(
                 [storage_path]
