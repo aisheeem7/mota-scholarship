@@ -2,13 +2,58 @@ from uuid import UUID
 
 from supabase import Client
 
-from app.schemas.application import ApplicationStatus, OCRStatus
-from app.services.ai.extraction_service import get_extraction_service
-from app.services.ai.gpt4o_provider import ExtractionError
-from app.services.ocr.ocr_service import OCRProcessingError, run_ocr
+from app.schemas.application import (
+    ApplicationStatus,
+    OCRStatus,
+)
+from app.services.ai.extraction_provider import (
+    ExtractionError,
+)
+from app.services.ai.extraction_service import (
+    get_extraction_service,
+)
+from app.services.ocr.ocr_service import (
+    OCRProcessingError,
+    run_ocr,
+)
+from app.services.validation.validation_service import (
+    validate_extraction,
+)
 
 
 STORAGE_BUCKET = "application-documents"
+
+
+def _persist_validation_results(
+    application_id: UUID,
+    validation_results,
+    supabase: Client,
+) -> None:
+    """
+    Persist deterministic validation results.
+
+    The database stores rule_id rather than rule_name.
+    rule_name is derived by the validation API from rule_id.
+    """
+
+    for result in validation_results:
+        validation_data = {
+            "application_id": str(application_id),
+            "rule_id": result.rule_id,
+            "passed": result.passed,
+            "extracted_value": result.extracted_value,
+            "expected_condition": result.expected_condition,
+            "reasoning": result.reasoning,
+            "severity": (
+                result.severity.value
+                if result.severity is not None
+                else None
+            ),
+        }
+
+        supabase.table("validations").insert(
+            validation_data
+        ).execute()
 
 
 def process_application_documents(
@@ -18,28 +63,57 @@ def process_application_documents(
     """
     Process all documents belonging to an application.
 
-    Flow:
-    1. Fetch application documents.
-    2. Download each document from private storage.
-    3. Run LlamaCloud OCR.
-    4. Persist OCR text and OCR status.
-    5. Run the configured extraction provider.
-    6. Keep structured extraction available for downstream stages.
-    7. Update application status.
+    Current flow:
 
-    The extraction provider can be:
+    1. Fetch application and scheme.
+    2. Fetch application documents.
+    3. Download each document from private storage.
+    4. Run LlamaCloud OCR.
+    5. Persist OCR text and OCR status.
+    6. Run configured extraction provider.
+    7. Validate extracted data against the canonical scheme config.
+    8. Persist deterministic validation results.
+    9. Update final application processing status.
+
+    Extraction providers:
     - mock
     - gpt4o
+
+    Eligibility decisions are made by deterministic validation rules,
+    not by the AI extraction provider.
     """
 
     # ---------------------------------------------------------
-    # 1. Fetch extraction provider
+    # 1. Fetch application
     # ---------------------------------------------------------
+
+    application_result = (
+        supabase.table("applications")
+        .select("id, scheme_id, status")
+        .eq("id", str(application_id))
+        .limit(1)
+        .execute()
+    )
+
+    application_rows = application_result.data or []
+
+    if not application_rows:
+        return
+
+    application = application_rows[0]
+
+    scheme_id = application["scheme_id"]
+
+    # ---------------------------------------------------------
+    # 2. Fetch configured extraction provider
+    # ---------------------------------------------------------
+
     extraction_service = get_extraction_service()
 
     # ---------------------------------------------------------
-    # 2. Fetch documents
+    # 3. Fetch documents
     # ---------------------------------------------------------
+
     documents_result = (
         supabase.table("documents")
         .select(
@@ -52,8 +126,9 @@ def process_application_documents(
     documents = documents_result.data or []
 
     # ---------------------------------------------------------
-    # 3. No documents -> DEFICIENT
+    # 4. No documents -> DEFICIENT
     # ---------------------------------------------------------
+
     if not documents:
         (
             supabase.table("applications")
@@ -65,14 +140,16 @@ def process_application_documents(
             .eq("id", str(application_id))
             .execute()
         )
+
         return
 
     any_unreadable = False
-    extractions = []
+    any_extraction_failure = False
 
     # ---------------------------------------------------------
-    # 4. Process each document
+    # 5. Process every document
     # ---------------------------------------------------------
+
     for document in documents:
         document_id = document["id"]
         storage_path = document["storage_path"]
@@ -80,8 +157,9 @@ def process_application_documents(
 
         try:
             # -------------------------------------------------
-            # 4a. Download document from private storage
+            # 5a. Download from private storage
             # -------------------------------------------------
+
             file_bytes = (
                 supabase.storage
                 .from_(STORAGE_BUCKET)
@@ -89,21 +167,27 @@ def process_application_documents(
             )
 
             # -------------------------------------------------
-            # 4b. Get filename
+            # 5b. Get filename
             # -------------------------------------------------
-            filename = storage_path.rsplit("/", 1)[-1]
+
+            filename = storage_path.rsplit(
+                "/",
+                1,
+            )[-1]
 
             # -------------------------------------------------
-            # 4c. Run OCR
+            # 5c. Run OCR
             # -------------------------------------------------
+
             ocr_text = run_ocr(
                 file_bytes=file_bytes,
                 filename=filename,
             )
 
             # -------------------------------------------------
-            # 4d. Persist OCR result
+            # 5d. Persist OCR result
             # -------------------------------------------------
+
             (
                 supabase.table("documents")
                 .update(
@@ -117,26 +201,40 @@ def process_application_documents(
             )
 
             # -------------------------------------------------
-            # 4e. Structured extraction
+            # 5e. Structured extraction
             # -------------------------------------------------
-            extraction = extraction_service.extract_document(
-                text=ocr_text,
-                document_type=document_type,
+
+            extraction = (
+                extraction_service.extract_document(
+                    text=ocr_text,
+                    document_type=document_type,
+                )
             )
 
             # -------------------------------------------------
-            # 4f. Keep structured result for downstream stages
+            # 5f. Deterministic validation
             # -------------------------------------------------
-            extractions.append(
-                {
-                    "document_id": document_id,
-                    "document_type": document_type,
-                    "extraction": extraction,
-                }
+
+            validation_results = validate_extraction(
+                extraction=extraction,
+                scheme_id=scheme_id,
+            )
+
+            # -------------------------------------------------
+            # 5g. Persist validation evidence
+            # -------------------------------------------------
+
+            _persist_validation_results(
+                application_id=application_id,
+                validation_results=validation_results,
+                supabase=supabase,
             )
 
         except OCRProcessingError:
-            # OCR itself failed.
+            # -------------------------------------------------
+            # OCR failed
+            # -------------------------------------------------
+
             any_unreadable = True
 
             (
@@ -151,9 +249,12 @@ def process_application_documents(
             )
 
         except ExtractionError:
-            # OCR succeeded, but structured extraction failed.
-            # Keep the document marked as READABLE because the
-            # document itself was successfully processed by OCR.
+            # -------------------------------------------------
+            # OCR succeeded but extraction failed
+            # -------------------------------------------------
+
+            any_extraction_failure = True
+
             (
                 supabase.table("documents")
                 .update(
@@ -166,7 +267,10 @@ def process_application_documents(
             )
 
         except Exception:
-            # Unexpected storage or processing failure.
+            # -------------------------------------------------
+            # Unexpected processing failure
+            # -------------------------------------------------
+
             any_unreadable = True
 
             (
@@ -181,13 +285,18 @@ def process_application_documents(
             )
 
     # ---------------------------------------------------------
-    # 5. Final application status
+    # 6. Final application status
     # ---------------------------------------------------------
-    final_status = (
-        ApplicationStatus.DEFICIENT.value
-        if any_unreadable
-        else ApplicationStatus.PROCESSING.value
-    )
+
+    if any_unreadable:
+        final_status = ApplicationStatus.DEFICIENT.value
+    else:
+        # Validation failures are intentionally not converted
+        # directly into workflow decisions here.
+        #
+        # Matching, risk scoring, and workflow transitions are
+        # the next stages.
+        final_status = ApplicationStatus.PROCESSING.value
 
     (
         supabase.table("applications")
@@ -199,13 +308,3 @@ def process_application_documents(
         .eq("id", str(application_id))
         .execute()
     )
-
-    # ---------------------------------------------------------
-    # 6. Keep extraction collection available for the next
-    #    deterministic validation stage.
-    # ---------------------------------------------------------
-    #
-    # We intentionally do not add another database field here.
-    # The next stage will consume these DocumentExtraction objects.
-    #
-    _ = extractions
