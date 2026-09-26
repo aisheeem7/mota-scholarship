@@ -39,6 +39,13 @@ class ApplicationResponse(BaseModel):
     updated_at: datetime
 
 
+class DocumentType(str, Enum):
+    INCOME_CERTIFICATE = "INCOME_CERTIFICATE"
+    CASTE_CERTIFICATE = "CASTE_CERTIFICATE"
+    ACADEMIC_RECORD = "ACADEMIC_RECORD"
+    IDENTITY_DOCUMENT = "IDENTITY_DOCUMENT"
+
+
 class OCRStatus(str, Enum):
     PROCESSING = "PROCESSING"
     READABLE = "READABLE"
@@ -49,5 +56,5 @@ class OCRStatus(str, Enum):
 class DocumentResponse(BaseModel):
     id: UUID
     application_id: UUID
-    document_type: str
+    document_type: DocumentType
     ocr_status: OCRStatus
