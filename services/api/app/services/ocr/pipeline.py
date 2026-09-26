@@ -20,7 +20,7 @@ def process_application_documents(
     1. Get documents from Supabase.
     2. Download each document from private storage.
     3. Run OCR.
-    4. Save OCR result/status.
+    4. Update OCR status.
     5. Update application status.
     """
 
@@ -79,20 +79,19 @@ def process_application_documents(
             # -------------------------------------------------
             # 3c. Run OCR
             # -------------------------------------------------
-            text = run_ocr(
+            run_ocr(
                 file_bytes=file_bytes,
                 filename=filename,
             )
 
             # -------------------------------------------------
-            # 3d. Save successful OCR result
+            # 3d. Mark document as readable
             # -------------------------------------------------
             (
                 supabase.table("documents")
                 .update(
                     {
                         "ocr_status": OCRStatus.READABLE.value,
-                        "ocr_text": text,
                     }
                 )
                 .eq("id", document_id)
@@ -115,7 +114,7 @@ def process_application_documents(
             )
 
         except Exception:
-            # Any unexpected processing/storage error
+            # Unexpected storage or processing failure
             any_unreadable = True
 
             (
@@ -130,7 +129,7 @@ def process_application_documents(
             )
 
     # ---------------------------------------------------------
-    # 4. Update final application status
+    # 4. Update application status
     # ---------------------------------------------------------
     final_status = (
         ApplicationStatus.DEFICIENT.value
