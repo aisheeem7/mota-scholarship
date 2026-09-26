@@ -1262,3 +1262,145 @@ def test_resubmit_application_invalid_status():
         "workflow_events",
         [],
     ) == []
+# ============================================================
+# ADMIN REVIEW TESTS
+# ============================================================
+
+
+def test_admin_review_approve():
+    application_id = "aaaaaaaa-1111-1111-1111-111111111111"
+
+    fake_supabase.database["applications"].append(
+        {
+            "id": application_id,
+            "student_id": "bbbbbbbb-1111-1111-1111-111111111111",
+            "scheme_id": "PRE_MATRIC",
+            "status": "FLAGGED_FOR_REVIEW",
+            "risk_score": 30,
+            "created_at": "2026-01-01T00:00:00+00:00",
+            "updated_at": "2026-01-01T00:00:00+00:00",
+        }
+    )
+
+    response = client.post(
+        f"/api/v1/admin/applications/{application_id}/review",
+        json={
+            "decision": "APPROVE",
+            "reason": (
+                "All required documents and configured "
+                "eligibility validations have passed."
+            ),
+        },
+    )
+
+    assert response.status_code == 200
+
+    data = response.json()
+
+    assert data["id"] == application_id
+    assert data["status"] == "APPROVED"
+
+    events = fake_supabase.database["workflow_events"]
+
+    assert len(events) == 2
+
+    assert events[0]["from_status"] == "FLAGGED_FOR_REVIEW"
+    assert events[0]["to_status"] == "ADMIN_REVIEW"
+
+    assert events[1]["from_status"] == "ADMIN_REVIEW"
+    assert events[1]["to_status"] == "APPROVED"
+    assert (
+        events[1]["reason"]
+        == "All required documents and configured "
+        "eligibility validations have passed."
+    )
+
+
+def test_admin_review_reject():
+    application_id = "aaaaaaaa-2222-2222-2222-222222222222"
+
+    fake_supabase.database["applications"].append(
+        {
+            "id": application_id,
+            "student_id": "bbbbbbbb-2222-2222-2222-222222222222",
+            "scheme_id": "PRE_MATRIC",
+            "status": "FLAGGED_FOR_REVIEW",
+            "risk_score": 30,
+            "created_at": "2026-01-01T00:00:00+00:00",
+            "updated_at": "2026-01-01T00:00:00+00:00",
+        }
+    )
+
+    response = client.post(
+        f"/api/v1/admin/applications/{application_id}/review",
+        json={
+            "decision": "REJECT",
+            "reason": "Administrative review rejected the application.",
+        },
+    )
+
+    assert response.status_code == 200
+
+    data = response.json()
+
+    assert data["id"] == application_id
+    assert data["status"] == "REJECTED"
+
+    events = fake_supabase.database["workflow_events"]
+
+    assert len(events) == 2
+
+    assert events[0]["from_status"] == "FLAGGED_FOR_REVIEW"
+    assert events[0]["to_status"] == "ADMIN_REVIEW"
+
+    assert events[1]["from_status"] == "ADMIN_REVIEW"
+    assert events[1]["to_status"] == "REJECTED"
+    assert (
+        events[1]["reason"]
+        == "Administrative review rejected the application."
+    )
+
+
+def test_admin_review_request_resubmission():
+    application_id = "aaaaaaaa-3333-3333-3333-333333333333"
+
+    fake_supabase.database["applications"].append(
+        {
+            "id": application_id,
+            "student_id": "bbbbbbbb-3333-3333-3333-333333333333",
+            "scheme_id": "PRE_MATRIC",
+            "status": "FLAGGED_FOR_REVIEW",
+            "risk_score": 30,
+            "created_at": "2026-01-01T00:00:00+00:00",
+            "updated_at": "2026-01-01T00:00:00+00:00",
+        }
+    )
+
+    response = client.post(
+        f"/api/v1/admin/applications/{application_id}/review",
+        json={
+            "decision": "REQUEST_RESUBMISSION",
+            "reason": "Please provide the missing supporting document.",
+        },
+    )
+
+    assert response.status_code == 200
+
+    data = response.json()
+
+    assert data["id"] == application_id
+    assert data["status"] == "DEFICIENT"
+
+    events = fake_supabase.database["workflow_events"]
+
+    assert len(events) == 2
+
+    assert events[0]["from_status"] == "FLAGGED_FOR_REVIEW"
+    assert events[0]["to_status"] == "ADMIN_REVIEW"
+
+    assert events[1]["from_status"] == "ADMIN_REVIEW"
+    assert events[1]["to_status"] == "DEFICIENT"
+    assert (
+        events[1]["reason"]
+        == "Please provide the missing supporting document."
+    )
