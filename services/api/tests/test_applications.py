@@ -1404,3 +1404,98 @@ def test_admin_review_request_resubmission():
         events[1]["reason"]
         == "Please provide the missing supporting document."
     )
+# ============================================================
+# DUPLICATE DETECTION TESTS
+# ============================================================
+
+
+def test_duplicate_application_adds_risk():
+    application_id_1 = "aaaaaaaa-4444-4444-4444-444444444444"
+    application_id_2 = "aaaaaaaa-5555-5555-5555-555555555555"
+    student_id = "bbbbbbbb-4444-4444-4444-444444444444"
+
+    fake_supabase.database["applications"].extend(
+        [
+            {
+                "id": application_id_1,
+                "student_id": student_id,
+                "scheme_id": "PRE_MATRIC",
+                "status": "APPROVED",
+                "risk_score": 0,
+                "created_at": "2026-01-01T00:00:00+00:00",
+                "updated_at": "2026-01-01T00:00:00+00:00",
+            },
+            {
+                "id": application_id_2,
+                "student_id": student_id,
+                "scheme_id": "PRE_MATRIC",
+                "status": "SUBMITTED",
+                "risk_score": None,
+                "created_at": "2026-01-02T00:00:00+00:00",
+                "updated_at": "2026-01-02T00:00:00+00:00",
+            },
+        ]
+    )
+
+    from app.services.risk.duplicate_service import (
+        has_duplicate_application,
+    )
+    from app.services.risk.risk_service import calculate_risk
+
+    duplicate = has_duplicate_application(
+        student_id=student_id,
+        scheme_id="PRE_MATRIC",
+        application_id=UUID(application_id_2),
+        supabase=fake_supabase,
+    )
+
+    assert duplicate is True
+
+    risk = calculate_risk(
+        duplicate=duplicate,
+    )
+
+    assert risk.score == 30
+    assert risk.duplicate is True
+
+
+def test_rejected_application_is_not_duplicate():
+    application_id_1 = "aaaaaaaa-6666-6666-6666-666666666666"
+    application_id_2 = "aaaaaaaa-7777-7777-7777-777777777777"
+    student_id = "bbbbbbbb-6666-6666-6666-666666666666"
+
+    fake_supabase.database["applications"].extend(
+        [
+            {
+                "id": application_id_1,
+                "student_id": student_id,
+                "scheme_id": "PRE_MATRIC",
+                "status": "REJECTED",
+                "risk_score": 0,
+                "created_at": "2026-01-01T00:00:00+00:00",
+                "updated_at": "2026-01-01T00:00:00+00:00",
+            },
+            {
+                "id": application_id_2,
+                "student_id": student_id,
+                "scheme_id": "PRE_MATRIC",
+                "status": "SUBMITTED",
+                "risk_score": None,
+                "created_at": "2026-01-02T00:00:00+00:00",
+                "updated_at": "2026-01-02T00:00:00+00:00",
+            },
+        ]
+    )
+
+    from app.services.risk.duplicate_service import (
+        has_duplicate_application,
+    )
+
+    duplicate = has_duplicate_application(
+        student_id=student_id,
+        scheme_id="PRE_MATRIC",
+        application_id=UUID(application_id_2),
+        supabase=fake_supabase,
+    )
+
+    assert duplicate is False

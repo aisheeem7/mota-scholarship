@@ -20,6 +20,9 @@ from app.services.ocr.ocr_service import (
     OCRProcessingError,
     run_ocr,
 )
+from app.services.risk.duplicate_service import (
+    has_duplicate_application,
+)
 from app.services.risk.risk_service import (
     calculate_risk,
 )
@@ -104,20 +107,21 @@ def process_application_documents(
     Flow:
 
     1. Fetch application and scheme.
-    2. Move SUBMITTED/RESUBMITTED -> PROCESSING.
-    3. Fetch application documents.
-    4. Validate required documents from prototype configuration.
-    5. Download each document from private storage.
-    6. Run LlamaCloud OCR.
-    7. Persist OCR result.
-    8. Run configured extraction provider.
-    9. Run deterministic eligibility validation.
-    10. Persist validation results.
-    11. Cross-match extracted values between documents.
-    12. Persist matching results.
-    13. Calculate prototype risk score.
-    14. Persist risk score.
-    15. Move PROCESSING -> final workflow state.
+    2. Detect duplicate application.
+    3. Move SUBMITTED/RESUBMITTED -> PROCESSING.
+    4. Fetch application documents.
+    5. Validate required documents from prototype configuration.
+    6. Download each document from private storage.
+    7. Run LlamaCloud OCR.
+    8. Persist OCR result.
+    9. Run configured extraction provider.
+    10. Run deterministic eligibility validation.
+    11. Persist validation results.
+    12. Cross-match extracted values between documents.
+    13. Persist matching results.
+    14. Calculate prototype risk score.
+    15. Persist risk score.
+    16. Move PROCESSING -> final workflow state.
 
     Required-document mappings are prototype configuration
     and are not presented as complete official MoTA rules.
@@ -136,7 +140,9 @@ def process_application_documents(
 
     application_result = (
         supabase.table("applications")
-        .select("id, scheme_id, status")
+        .select(
+            "id, student_id, scheme_id, status"
+        )
         .eq(
             "id",
             str(application_id),
@@ -151,6 +157,8 @@ def process_application_documents(
         return
 
     application = application_rows[0]
+
+    student_id = application["student_id"]
     scheme_id = application["scheme_id"]
 
     current_status = ApplicationStatus(
@@ -158,7 +166,18 @@ def process_application_documents(
     )
 
     # ---------------------------------------------------------
-    # 2. Ensure processing state
+    # 2. Detect duplicate application
+    # ---------------------------------------------------------
+
+    duplicate_detected = has_duplicate_application(
+        student_id=student_id,
+        scheme_id=scheme_id,
+        application_id=application_id,
+        supabase=supabase,
+    )
+
+    # ---------------------------------------------------------
+    # 3. Ensure processing state
     # ---------------------------------------------------------
 
     if current_status in {
@@ -177,13 +196,13 @@ def process_application_documents(
         return
 
     # ---------------------------------------------------------
-    # 3. Fetch configured extraction provider
+    # 4. Fetch configured extraction provider
     # ---------------------------------------------------------
 
     extraction_service = get_extraction_service()
 
     # ---------------------------------------------------------
-    # 4. Fetch documents
+    # 5. Fetch documents
     # ---------------------------------------------------------
 
     documents_result = (
@@ -201,7 +220,7 @@ def process_application_documents(
     documents = documents_result.data or []
 
     # ---------------------------------------------------------
-    # 5. Required-document validation
+    # 6. Required-document validation
     # ---------------------------------------------------------
 
     uploaded_document_types = [
@@ -229,13 +248,13 @@ def process_application_documents(
     )
 
     # ---------------------------------------------------------
-    # 6. No documents -> DEFICIENT
+    # 7. No documents -> DEFICIENT
     # ---------------------------------------------------------
 
     if not documents:
         risk_assessment = calculate_risk(
             match_results=[],
-            duplicate=False,
+            duplicate=duplicate_detected,
             missing_document=True,
             unreadable_document=False,
         )
@@ -272,7 +291,7 @@ def process_application_documents(
     extracted_documents = []
 
     # ---------------------------------------------------------
-    # 7. Process every document
+    # 8. Process every document
     # ---------------------------------------------------------
 
     for document in documents:
@@ -282,7 +301,7 @@ def process_application_documents(
 
         try:
             # -------------------------------------------------
-            # 7a. Download document
+            # 8a. Download document
             # -------------------------------------------------
 
             file_bytes = (
@@ -292,7 +311,7 @@ def process_application_documents(
             )
 
             # -------------------------------------------------
-            # 7b. Get filename
+            # 8b. Get filename
             # -------------------------------------------------
 
             filename = storage_path.rsplit(
@@ -301,7 +320,7 @@ def process_application_documents(
             )[-1]
 
             # -------------------------------------------------
-            # 7c. Run OCR
+            # 8c. Run OCR
             # -------------------------------------------------
 
             ocr_text = run_ocr(
@@ -310,7 +329,7 @@ def process_application_documents(
             )
 
             # -------------------------------------------------
-            # 7d. Persist OCR result
+            # 8d. Persist OCR result
             # -------------------------------------------------
 
             (
@@ -329,7 +348,7 @@ def process_application_documents(
             )
 
             # -------------------------------------------------
-            # 7e. Structured extraction
+            # 8e. Structured extraction
             # -------------------------------------------------
 
             extraction = (
@@ -340,7 +359,7 @@ def process_application_documents(
             )
 
             # -------------------------------------------------
-            # 7f. Deterministic validation
+            # 8f. Deterministic validation
             # -------------------------------------------------
 
             validation_results = validate_extraction(
@@ -349,7 +368,7 @@ def process_application_documents(
             )
 
             # -------------------------------------------------
-            # 7g. Check deterministic rule failures
+            # 8g. Check deterministic rule failures
             # -------------------------------------------------
 
             if any(
@@ -359,7 +378,7 @@ def process_application_documents(
                 validation_failed = True
 
             # -------------------------------------------------
-            # 7h. Persist validation evidence
+            # 8h. Persist validation evidence
             # -------------------------------------------------
 
             _persist_validation_results(
@@ -369,7 +388,7 @@ def process_application_documents(
             )
 
             # -------------------------------------------------
-            # 7i. Keep extraction for matching
+            # 8i. Keep extraction for matching
             # -------------------------------------------------
 
             extracted_documents.append(
@@ -444,7 +463,7 @@ def process_application_documents(
             )
 
     # ---------------------------------------------------------
-    # 8. Cross-document matching
+    # 9. Cross-document matching
     # ---------------------------------------------------------
 
     match_results = []
@@ -461,7 +480,7 @@ def process_application_documents(
         )
 
     # ---------------------------------------------------------
-    # 9. Determine matching conflict
+    # 10. Determine matching conflict
     # ---------------------------------------------------------
 
     matching_conflict = has_conflict(
@@ -469,18 +488,18 @@ def process_application_documents(
     )
 
     # ---------------------------------------------------------
-    # 10. Calculate prototype risk
+    # 11. Calculate prototype risk
     # ---------------------------------------------------------
 
     risk_assessment = calculate_risk(
         match_results=match_results,
-        duplicate=False,
+        duplicate=duplicate_detected,
         missing_document=missing_document,
         unreadable_document=any_unreadable,
     )
 
     # ---------------------------------------------------------
-    # 11. Persist risk score
+    # 12. Persist risk score
     # ---------------------------------------------------------
 
     (
@@ -498,7 +517,7 @@ def process_application_documents(
     )
 
     # ---------------------------------------------------------
-    # 12. Determine final workflow state
+    # 13. Determine final workflow state
     # ---------------------------------------------------------
 
     if (
@@ -529,7 +548,7 @@ def process_application_documents(
         )
 
     # ---------------------------------------------------------
-    # 13. Persist final workflow transition
+    # 14. Persist final workflow transition
     # ---------------------------------------------------------
 
     transition_application(
