@@ -5,15 +5,20 @@ from fastapi.testclient import TestClient
 from app.core.supabase_client import get_supabase
 from app.main import app
 from app.schemas.extraction import DocumentExtraction
+from app.schemas.validation import (
+    ValidationResult,
+    ValidationSeverity,
+)
 from app.services.ai import extraction_service
-from app.services.ocr import pipeline as ocr_pipeline
-from app.services.ai.gpt4o_provider import GPT4oExtractionProvider
 from app.services.ai import gpt4o_provider
+from app.services.ai.gpt4o_provider import GPT4oExtractionProvider
+from app.services.ocr import pipeline as ocr_pipeline
 
 
 # ============================================================
 # FAKE SUPABASE
 # ============================================================
+
 
 class FakeResult:
     def __init__(self, data):
@@ -47,11 +52,15 @@ class FakeQuery:
         return self
 
     def execute(self):
-        table = self.database.setdefault(self.table_name, [])
+        table = self.database.setdefault(
+            self.table_name,
+            [],
+        )
 
         # --------------------------------------------------------
         # UPDATE
         # --------------------------------------------------------
+
         if self.pending_update is not None:
             rows = table
 
@@ -70,14 +79,17 @@ class FakeQuery:
         # --------------------------------------------------------
         # INSERT
         # --------------------------------------------------------
+
         if self.pending_insert is not None:
             row = dict(self.pending_insert)
             table.append(row)
+
             return FakeResult([row])
 
         # --------------------------------------------------------
         # SELECT
         # --------------------------------------------------------
+
         rows = table
 
         for field, value in self.filters.items():
@@ -130,12 +142,16 @@ class FakeSupabase:
         self.storage = FakeStorage(self.storage_data)
 
     def table(self, table_name):
-        return FakeQuery(self.database, table_name)
+        return FakeQuery(
+            self.database,
+            table_name,
+        )
 
 
 # ============================================================
 # TEST SETUP
 # ============================================================
+
 
 fake_supabase = FakeSupabase()
 
@@ -161,9 +177,45 @@ def setup_function():
     fake_supabase.storage_data.clear()
 
 
+def mock_required_documents_present(monkeypatch):
+    """
+    Make the required-document check pass for tests that
+    are specifically testing OCR, validation, matching,
+    or extraction behavior rather than missing documents.
+    """
+
+    monkeypatch.setattr(
+        ocr_pipeline,
+        "validate_required_documents",
+        lambda scheme_id, uploaded_document_types: (
+            ValidationResult(
+                rule_id="REQUIRED_DOCUMENTS",
+                rule_name="Required Documents",
+                passed=True,
+                extracted_value=(
+                    "INCOME_CERTIFICATE, "
+                    "CASTE_CERTIFICATE, "
+                    "ACADEMIC_RECORD, "
+                    "IDENTITY_DOCUMENT"
+                ),
+                expected_condition=(
+                    "All configured prototype required "
+                    "documents are present."
+                ),
+                reasoning=(
+                    "Required-document check bypassed for "
+                    "this scenario-specific test."
+                ),
+                severity=ValidationSeverity.NONE,
+            )
+        ),
+    )
+
+
 # ============================================================
 # EXISTING APPLICATION TESTS
 # ============================================================
+
 
 def test_health():
     response = client.get("/health")
@@ -256,7 +308,7 @@ def test_invalid_student_id():
 
 def test_invalid_scheme_id():
     payload = {
-        "student_id": "00000000-0000-0000-0000-000000000001",
+        "student_id": "00000000-0000-0000-000000000001",
         "scheme_id": "INVALID_SCHEME",
     }
 
@@ -271,6 +323,7 @@ def test_invalid_scheme_id():
 # ============================================================
 # DBT TESTS
 # ============================================================
+
 
 def test_dbt_transaction_not_found():
     application_id = "00000000-0000-0000-0000-000000000010"
@@ -313,6 +366,7 @@ def test_dbt_transaction_success():
 # ============================================================
 # DOCUMENT UPLOAD TESTS
 # ============================================================
+
 
 def test_upload_document_success():
     application_id = "00000000-0000-0000-0000-000000000020"
@@ -406,6 +460,7 @@ def test_upload_document_invalid_content_type():
 # ============================================================
 # VALIDATION TESTS
 # ============================================================
+
 
 def test_validations_list_found():
     application_id = "00000000-0000-0000-0000-000000000030"
@@ -531,6 +586,7 @@ def test_validation_passed_null():
 # PROCESS TESTS
 # ============================================================
 
+
 def test_process_application_success():
     application_id = "00000000-0000-0000-0000-000000000040"
 
@@ -557,6 +613,18 @@ def test_process_application_success():
     assert data["id"] == application_id
     assert data["status"] == "PROCESSING"
 
+    events = fake_supabase.database["workflow_events"]
+
+    assert len(events) == 2
+
+    assert events[0]["from_status"] == "SUBMITTED"
+    assert events[0]["to_status"] == "PROCESSING"
+
+    assert events[1]["from_status"] == "PROCESSING"
+    assert events[1]["to_status"] == "DEFICIENT"
+
+    assert fake_supabase.database["applications"][0]["status"] == "DEFICIENT"
+
 
 def test_process_application_not_found():
     application_id = "00000000-0000-0000-0000-000000000041"
@@ -572,6 +640,7 @@ def test_process_application_not_found():
 # ============================================================
 # OCR PIPELINE TESTS
 # ============================================================
+
 
 def test_ocr_pipeline_readable(monkeypatch):
     application_id = "11111111-1111-1111-1111-111111111111"
@@ -608,9 +677,8 @@ def test_ocr_pipeline_readable(monkeypatch):
         "bytes": b"fake pdf content",
     }
 
-    # --------------------------------------------------------
-    # Mock OCR
-    # --------------------------------------------------------
+    mock_required_documents_present(monkeypatch)
+
     monkeypatch.setattr(
         ocr_pipeline,
         "run_ocr",
@@ -621,9 +689,6 @@ def test_ocr_pipeline_readable(monkeypatch):
         ),
     )
 
-    # --------------------------------------------------------
-    # Mock extraction service
-    # --------------------------------------------------------
     class FakeExtractionService:
         def extract_document(self, text, document_type):
             return DocumentExtraction(
@@ -650,17 +715,12 @@ def test_ocr_pipeline_readable(monkeypatch):
         "get_extraction_service",
         lambda: FakeExtractionService(),
     )
-    # --------------------------------------------------------
-    # Run pipeline
-    # --------------------------------------------------------
+
     ocr_pipeline.process_application_documents(
         UUID(application_id),
         fake_supabase,
     )
 
-    # --------------------------------------------------------
-    # Check results
-    # --------------------------------------------------------
     document = fake_supabase.database["documents"][0]
     application = fake_supabase.database["applications"][0]
 
@@ -671,13 +731,12 @@ def test_ocr_pipeline_readable(monkeypatch):
         "Annual family income: Rs. 2,00,000"
     )
     assert application["status"] == "APPROVED"
+
     events = fake_supabase.database["workflow_events"]
 
     assert len(events) == 2
-
     assert events[0]["from_status"] == "SUBMITTED"
     assert events[0]["to_status"] == "PROCESSING"
-
     assert events[1]["from_status"] == "PROCESSING"
     assert events[1]["to_status"] == "APPROVED"
 
@@ -717,9 +776,6 @@ def test_ocr_pipeline_unreadable(monkeypatch):
         "bytes": b"fake pdf content",
     }
 
-    # --------------------------------------------------------
-    # Mock OCR failure
-    # --------------------------------------------------------
     def fake_ocr(file_bytes, filename):
         raise ocr_pipeline.OCRProcessingError(
             "OCR failed"
@@ -731,98 +787,126 @@ def test_ocr_pipeline_unreadable(monkeypatch):
         fake_ocr,
     )
 
-    # --------------------------------------------------------
-    # Run pipeline
-    # --------------------------------------------------------
     ocr_pipeline.process_application_documents(
         UUID(application_id),
         fake_supabase,
     )
 
-    # --------------------------------------------------------
-    # Check results
-    # --------------------------------------------------------
     document = fake_supabase.database["documents"][0]
     application = fake_supabase.database["applications"][0]
 
     assert document["ocr_status"] == "UNREADABLE"
     assert application["status"] == "DEFICIENT"
 
+    events = fake_supabase.database["workflow_events"]
 
-# ============================================================
-# GPT-4o EXTRACTION TESTS
-# ============================================================
+    assert len(events) == 2
+    assert events[0]["from_status"] == "SUBMITTED"
+    assert events[0]["to_status"] == "PROCESSING"
+    assert events[1]["from_status"] == "PROCESSING"
+    assert events[1]["to_status"] == "DEFICIENT"
 
-def test_extract_document_success(monkeypatch):
-    class FakeMessage:
-        parsed = DocumentExtraction(
-            student_name="Rahul Das",
-            category="ST",
-            annual_income=200000,
-            academic_level="X",
-            institution=None,
-            course=None,
-            document_number="INC12345",
-            confidence=0.96,
-            reasoning=(
-                "The income is explicitly stated in the document."
-            ),
-            evidence=[
-                "Annual family income: Rs. 2,00,000"
-            ],
-        )
 
-    class FakeCompletion:
-        choices = [
-            type(
-                "Choice",
-                (),
-                {"message": FakeMessage()},
-            )()
-        ]
+def test_ocr_pipeline_missing_document_is_deficient(monkeypatch):
+    application_id = "66666666-6666-6666-6666-666666666666"
+    document_id = "77777777-7777-7777-7777-777777777777"
 
-    class FakeCompletions:
-        def parse(self, **kwargs):
-            return FakeCompletion()
+    fake_supabase.database["applications"].append(
+        {
+            "id": application_id,
+            "student_id": "88888888-8888-8888-8888-888888888888",
+            "scheme_id": "PRE_MATRIC",
+            "status": "SUBMITTED",
+            "risk_score": None,
+            "created_at": "2026-01-01T00:00:00+00:00",
+            "updated_at": "2026-01-01T00:00:00+00:00",
+        }
+    )
 
-    class FakeChat:
-        completions = FakeCompletions()
+    storage_path = (
+        f"applications/{application_id}/"
+        f"{document_id}-INCOME_CERTIFICATE.pdf"
+    )
 
-    class FakeClient:
-        chat = FakeChat()
+    fake_supabase.database["documents"].append(
+        {
+            "id": document_id,
+            "application_id": application_id,
+            "document_type": "INCOME_CERTIFICATE",
+            "storage_path": storage_path,
+            "ocr_status": "PROCESSING",
+        }
+    )
+
+    fake_supabase.storage_data[storage_path] = {
+        "bytes": b"fake pdf content",
+    }
 
     monkeypatch.setattr(
-        gpt4o_provider,
-        "OpenAI",
-        lambda api_key: FakeClient(),
+        ocr_pipeline,
+        "run_ocr",
+        lambda file_bytes, filename: (
+            "Student Name: Rahul Das\n"
+            "Category: ST\n"
+            "Annual family income: Rs. 2,00,000"
+        ),
     )
 
-    provider = GPT4oExtractionProvider()
+    class FakeExtractionService:
+        def extract_document(self, text, document_type):
+            return DocumentExtraction(
+                student_name="Rahul Das",
+                category="ST",
+                annual_income=200000,
+                academic_level="X",
+                institution=None,
+                course=None,
+                document_number="INC12345",
+                confidence=0.96,
+                reasoning="Values extracted successfully.",
+                evidence=[
+                    "Student Name: Rahul Das",
+                    "Category: ST",
+                    "Annual family income: Rs. 2,00,000",
+                ],
+            )
 
-    result = provider.extract(
-        text="Annual family income: Rs. 2,00,000",
-        document_type="INCOME_CERTIFICATE",
+    monkeypatch.setattr(
+        ocr_pipeline,
+        "get_extraction_service",
+        lambda: FakeExtractionService(),
     )
 
-    assert isinstance(result, DocumentExtraction)
-    assert result.student_name == "Rahul Das"
-    assert result.category == "ST"
-    assert result.annual_income == 200000
-    assert result.confidence == 0.96
+    ocr_pipeline.process_application_documents(
+        UUID(application_id),
+        fake_supabase,
+    )
+
+    application = fake_supabase.database["applications"][0]
+
+    assert application["status"] == "DEFICIENT"
+    assert application["risk_score"] == 20
+
+    validation_results = fake_supabase.database["validations"]
+
+    required_document_results = [
+        result
+        for result in validation_results
+        if result["rule_id"] == "REQUIRED_DOCUMENTS"
+    ]
+
+    assert len(required_document_results) >= 1
+    assert required_document_results[0]["passed"] is False
+
+    events = fake_supabase.database["workflow_events"]
+
+    assert len(events) == 2
+    assert events[0]["from_status"] == "SUBMITTED"
+    assert events[0]["to_status"] == "PROCESSING"
+    assert events[1]["from_status"] == "PROCESSING"
+    assert events[1]["to_status"] == "DEFICIENT"
 
 
-def test_extract_document_empty_text():
-    try:
-        extraction_service.extract_document(
-            text="",
-            document_type="INCOME_CERTIFICATE",
-        )
-    except extraction_service.ExtractionError as exc:
-        assert str(exc) == "OCR text is empty"
-    else:
-        raise AssertionError(
-            "Expected ExtractionError for empty OCR text"
-        )
 def test_ocr_pipeline_validation_failure_is_deficient(monkeypatch):
     application_id = "77777777-7777-7777-7777-777777777777"
     document_id = "88888888-8888-8888-8888-888888888888"
@@ -857,6 +941,8 @@ def test_ocr_pipeline_validation_failure_is_deficient(monkeypatch):
     fake_supabase.storage_data[storage_path] = {
         "bytes": b"fake pdf content",
     }
+
+    mock_required_documents_present(monkeypatch)
 
     monkeypatch.setattr(
         ocr_pipeline,
@@ -964,6 +1050,8 @@ def test_ocr_pipeline_name_mismatch_is_flagged_for_review(monkeypatch):
         "bytes": b"identity pdf",
     }
 
+    mock_required_documents_present(monkeypatch)
+
     monkeypatch.setattr(
         ocr_pipeline,
         "run_ocr",
@@ -982,7 +1070,9 @@ def test_ocr_pipeline_name_mismatch_is_flagged_for_review(monkeypatch):
                     course=None,
                     document_number="INC001",
                     confidence=0.96,
-                    reasoning="Income certificate extracted successfully.",
+                    reasoning=(
+                        "Income certificate extracted successfully."
+                    ),
                     evidence=["Student Name: Rahul Das"],
                 )
 
@@ -995,7 +1085,9 @@ def test_ocr_pipeline_name_mismatch_is_flagged_for_review(monkeypatch):
                 course=None,
                 document_number="ID001",
                 confidence=0.96,
-                reasoning="Identity document extracted successfully.",
+                reasoning=(
+                    "Identity document extracted successfully."
+                ),
                 evidence=["Student Name: Amit Das"],
             )
 
@@ -1022,6 +1114,94 @@ def test_ocr_pipeline_name_mismatch_is_flagged_for_review(monkeypatch):
     assert events[0]["to_status"] == "PROCESSING"
     assert events[1]["from_status"] == "PROCESSING"
     assert events[1]["to_status"] == "FLAGGED_FOR_REVIEW"
+
+
+# ============================================================
+# GPT-4o EXTRACTION TESTS
+# ============================================================
+
+
+def test_extract_document_success(monkeypatch):
+    class FakeMessage:
+        parsed = DocumentExtraction(
+            student_name="Rahul Das",
+            category="ST",
+            annual_income=200000,
+            academic_level="X",
+            institution=None,
+            course=None,
+            document_number="INC12345",
+            confidence=0.96,
+            reasoning=(
+                "The income is explicitly stated in the document."
+            ),
+            evidence=[
+                "Annual family income: Rs. 2,00,000"
+            ],
+        )
+
+    class FakeCompletion:
+        choices = [
+            type(
+                "Choice",
+                (),
+                {"message": FakeMessage()},
+            )()
+        ]
+
+    class FakeCompletions:
+        def parse(self, **kwargs):
+            return FakeCompletion()
+
+    class FakeChat:
+        completions = FakeCompletions()
+
+    class FakeClient:
+        chat = FakeChat()
+
+    monkeypatch.setattr(
+        gpt4o_provider,
+        "OpenAI",
+        lambda api_key: FakeClient(),
+    )
+
+    provider = GPT4oExtractionProvider()
+
+    result = provider.extract(
+        text="Annual family income: Rs. 2,00,000",
+        document_type="INCOME_CERTIFICATE",
+    )
+
+    assert isinstance(
+        result,
+        DocumentExtraction,
+    )
+
+    assert result.student_name == "Rahul Das"
+    assert result.category == "ST"
+    assert result.annual_income == 200000
+    assert result.confidence == 0.96
+
+
+def test_extract_document_empty_text():
+    try:
+        extraction_service.extract_document(
+            text="",
+            document_type="INCOME_CERTIFICATE",
+        )
+    except extraction_service.ExtractionError as exc:
+        assert str(exc) == "OCR text is empty"
+    else:
+        raise AssertionError(
+            "Expected ExtractionError for empty OCR text"
+        )
+
+
+# ============================================================
+# RESUBMISSION TESTS
+# ============================================================
+
+
 def test_resubmit_application_success():
     application_id = "eeeeeeee-eeee-eeee-eeee-eeeeeeeeeeee"
 

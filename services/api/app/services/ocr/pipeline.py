@@ -25,6 +25,7 @@ from app.services.risk.risk_service import (
 )
 from app.services.validation.validation_service import (
     validate_extraction,
+    validate_required_documents,
 )
 from app.services.workflow.workflow_service import (
     transition_application,
@@ -43,7 +44,7 @@ def _persist_validation_results(
     Persist deterministic validation results.
 
     The database stores rule_id rather than rule_name.
-    rule_name is derived by the validation API from rule_id.
+    rule_name is derived by the validation API.
     """
 
     for result in validation_results:
@@ -103,20 +104,23 @@ def process_application_documents(
     Flow:
 
     1. Fetch application and scheme.
-    2. Move SUBMITTED/RESUBMITTED -> PROCESSING when needed.
+    2. Move SUBMITTED/RESUBMITTED -> PROCESSING.
     3. Fetch application documents.
-    4. Download each document from private storage.
-    5. Run LlamaCloud OCR.
-    6. Persist OCR text and OCR status.
-    7. Run configured extraction provider.
-    8. Validate extracted data against canonical scheme config.
-    9. Persist deterministic validation results.
-    10. Cross-match extracted values between documents.
-    11. Persist cross-document match results.
-    12. Calculate prototype risk score.
-    13. Persist applications.risk_score.
-    14. Move PROCESSING -> final workflow state.
-    15. Persist workflow event for the transition.
+    4. Validate required documents from prototype configuration.
+    5. Download each document from private storage.
+    6. Run LlamaCloud OCR.
+    7. Persist OCR result.
+    8. Run configured extraction provider.
+    9. Run deterministic eligibility validation.
+    10. Persist validation results.
+    11. Cross-match extracted values between documents.
+    12. Persist matching results.
+    13. Calculate prototype risk score.
+    14. Persist risk score.
+    15. Move PROCESSING -> final workflow state.
+
+    Required-document mappings are prototype configuration
+    and are not presented as complete official MoTA rules.
 
     Extraction providers:
     - mock
@@ -133,7 +137,10 @@ def process_application_documents(
     application_result = (
         supabase.table("applications")
         .select("id, scheme_id, status")
-        .eq("id", str(application_id))
+        .eq(
+            "id",
+            str(application_id),
+        )
         .limit(1)
         .execute()
     )
@@ -145,6 +152,7 @@ def process_application_documents(
 
     application = application_rows[0]
     scheme_id = application["scheme_id"]
+
     current_status = ApplicationStatus(
         application["status"]
     )
@@ -164,8 +172,6 @@ def process_application_documents(
             reason="Document processing started",
             supabase=supabase,
         )
-
-        current_status = ApplicationStatus.PROCESSING
 
     elif current_status != ApplicationStatus.PROCESSING:
         return
@@ -195,23 +201,50 @@ def process_application_documents(
     documents = documents_result.data or []
 
     # ---------------------------------------------------------
-    # 5. No documents -> DEFICIENT
+    # 5. Required-document validation
+    # ---------------------------------------------------------
+
+    uploaded_document_types = [
+        document["document_type"]
+        for document in documents
+    ]
+
+    required_document_result = (
+        validate_required_documents(
+            scheme_id=scheme_id,
+            uploaded_document_types=uploaded_document_types,
+        )
+    )
+
+    _persist_validation_results(
+        application_id=application_id,
+        validation_results=[
+            required_document_result,
+        ],
+        supabase=supabase,
+    )
+
+    missing_document = (
+        required_document_result.passed is False
+    )
+
+    # ---------------------------------------------------------
+    # 6. No documents -> DEFICIENT
     # ---------------------------------------------------------
 
     if not documents:
-        transition_application(
-            application_id=application_id,
-            from_status=ApplicationStatus.PROCESSING,
-            to_status=ApplicationStatus.DEFICIENT,
-            reason="No application documents were provided",
-            supabase=supabase,
+        risk_assessment = calculate_risk(
+            match_results=[],
+            duplicate=False,
+            missing_document=True,
+            unreadable_document=False,
         )
 
         (
             supabase.table("applications")
             .update(
                 {
-                    "risk_score": 20,
+                    "risk_score": risk_assessment.score,
                 }
             )
             .eq(
@@ -221,6 +254,17 @@ def process_application_documents(
             .execute()
         )
 
+        transition_application(
+            application_id=application_id,
+            from_status=ApplicationStatus.PROCESSING,
+            to_status=ApplicationStatus.DEFICIENT,
+            reason=(
+                "Required application documents "
+                "are missing"
+            ),
+            supabase=supabase,
+        )
+
         return
 
     any_unreadable = False
@@ -228,7 +272,7 @@ def process_application_documents(
     extracted_documents = []
 
     # ---------------------------------------------------------
-    # 6. Process every document
+    # 7. Process every document
     # ---------------------------------------------------------
 
     for document in documents:
@@ -238,7 +282,7 @@ def process_application_documents(
 
         try:
             # -------------------------------------------------
-            # 6a. Download document
+            # 7a. Download document
             # -------------------------------------------------
 
             file_bytes = (
@@ -248,7 +292,7 @@ def process_application_documents(
             )
 
             # -------------------------------------------------
-            # 6b. Get filename
+            # 7b. Get filename
             # -------------------------------------------------
 
             filename = storage_path.rsplit(
@@ -257,7 +301,7 @@ def process_application_documents(
             )[-1]
 
             # -------------------------------------------------
-            # 6c. Run OCR
+            # 7c. Run OCR
             # -------------------------------------------------
 
             ocr_text = run_ocr(
@@ -266,7 +310,7 @@ def process_application_documents(
             )
 
             # -------------------------------------------------
-            # 6d. Persist OCR result
+            # 7d. Persist OCR result
             # -------------------------------------------------
 
             (
@@ -285,7 +329,7 @@ def process_application_documents(
             )
 
             # -------------------------------------------------
-            # 6e. Structured extraction
+            # 7e. Structured extraction
             # -------------------------------------------------
 
             extraction = (
@@ -296,7 +340,7 @@ def process_application_documents(
             )
 
             # -------------------------------------------------
-            # 6f. Deterministic validation
+            # 7f. Deterministic validation
             # -------------------------------------------------
 
             validation_results = validate_extraction(
@@ -305,7 +349,7 @@ def process_application_documents(
             )
 
             # -------------------------------------------------
-            # 6g. Check deterministic rule failures
+            # 7g. Check deterministic rule failures
             # -------------------------------------------------
 
             if any(
@@ -315,7 +359,7 @@ def process_application_documents(
                 validation_failed = True
 
             # -------------------------------------------------
-            # 6h. Persist validation evidence
+            # 7h. Persist validation evidence
             # -------------------------------------------------
 
             _persist_validation_results(
@@ -325,7 +369,7 @@ def process_application_documents(
             )
 
             # -------------------------------------------------
-            # 6i. Keep extraction for matching
+            # 7i. Keep extraction for matching
             # -------------------------------------------------
 
             extracted_documents.append(
@@ -400,7 +444,7 @@ def process_application_documents(
             )
 
     # ---------------------------------------------------------
-    # 7. Cross-document matching
+    # 8. Cross-document matching
     # ---------------------------------------------------------
 
     match_results = []
@@ -417,7 +461,7 @@ def process_application_documents(
         )
 
     # ---------------------------------------------------------
-    # 8. Determine matching conflict
+    # 9. Determine matching conflict
     # ---------------------------------------------------------
 
     matching_conflict = has_conflict(
@@ -425,18 +469,18 @@ def process_application_documents(
     )
 
     # ---------------------------------------------------------
-    # 9. Calculate prototype risk
+    # 10. Calculate prototype risk
     # ---------------------------------------------------------
 
     risk_assessment = calculate_risk(
         match_results=match_results,
         duplicate=False,
-        missing_document=False,
+        missing_document=missing_document,
         unreadable_document=any_unreadable,
     )
 
     # ---------------------------------------------------------
-    # 10. Persist risk score
+    # 11. Persist risk score
     # ---------------------------------------------------------
 
     (
@@ -454,10 +498,14 @@ def process_application_documents(
     )
 
     # ---------------------------------------------------------
-    # 11. Determine final workflow state
+    # 12. Determine final workflow state
     # ---------------------------------------------------------
 
-    if any_unreadable or validation_failed:
+    if (
+        any_unreadable
+        or validation_failed
+        or missing_document
+    ):
         final_status = ApplicationStatus.DEFICIENT
         reason = (
             "Application requires document or "
@@ -481,7 +529,7 @@ def process_application_documents(
         )
 
     # ---------------------------------------------------------
-    # 12. Persist final workflow transition
+    # 13. Persist final workflow transition
     # ---------------------------------------------------------
 
     transition_application(

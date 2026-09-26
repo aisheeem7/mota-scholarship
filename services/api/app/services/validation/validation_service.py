@@ -84,7 +84,91 @@ def _result(
         severity=severity,
     )
 
+def get_required_documents(
+    scheme_id: str,
+) -> list[str]:
+    """
+    Return the prototype required-document mapping
+    for a scholarship scheme.
+    """
 
+    scheme = get_scheme_config(scheme_id)
+
+    return [
+        str(document).strip().upper()
+        for document in scheme.get(
+            "required_documents",
+            [],
+        )
+    ]
+
+
+def validate_required_documents(
+    scheme_id: str,
+    uploaded_document_types: list[str],
+) -> ValidationResult:
+    """
+    Validate uploaded documents against the frozen
+    prototype required-document mapping.
+
+    This mapping is a hackathon prototype configuration
+    and is not presented as the complete official MoTA
+    documentary requirement.
+    """
+
+    required_documents = set(
+        get_required_documents(scheme_id)
+    )
+
+    uploaded_documents = {
+        str(document).strip().upper()
+        for document in uploaded_document_types
+    }
+
+    missing_documents = sorted(
+        required_documents - uploaded_documents
+    )
+
+    expected_condition = (
+        "Required documents: "
+        + ", ".join(
+            sorted(required_documents)
+        )
+    )
+
+    extracted_value = (
+        ", ".join(
+            sorted(uploaded_documents)
+        )
+        if uploaded_documents
+        else None
+    )
+
+    if missing_documents:
+        return _result(
+            rule_id="REQUIRED_DOCUMENTS",
+            passed=False,
+            extracted_value=extracted_value,
+            expected_condition=expected_condition,
+            reasoning=(
+                "Missing required document(s): "
+                + ", ".join(missing_documents)
+                + "."
+            ),
+            severity=ValidationSeverity.HIGH,
+        )
+
+    return _result(
+        rule_id="REQUIRED_DOCUMENTS",
+        passed=True,
+        extracted_value=extracted_value,
+        expected_condition=expected_condition,
+        reasoning=(
+            "All configured prototype required "
+            "documents are present."
+        ),
+        severity=ValidationSeverity.NONE,
+    )
 def validate_extraction(
     extraction: DocumentExtraction,
     scheme_id: str,
@@ -333,30 +417,6 @@ def validate_extraction(
                     ),
                 )
             )
-
-    # ---------------------------------------------------------
-    # REQUIRED DOCUMENTS
-    # ---------------------------------------------------------
-
-    if "REQUIRED_DOCUMENTS" in required_rules:
-        results.append(
-            _result(
-                rule_id="REQUIRED_DOCUMENTS",
-                passed=None,
-                extracted_value=None,
-                expected_condition=(
-                    "Required document evidence must be available"
-                ),
-                reasoning=(
-                    "The current canonical configuration identifies "
-                    "REQUIRED_DOCUMENTS as a validation category, "
-                    "but does not define an exact per-scheme "
-                    "document mapping. This rule is therefore "
-                    "not evaluable at this stage."
-                ),
-                severity=None,
-            )
-        )
 
     # ---------------------------------------------------------
     # INSTITUTION
