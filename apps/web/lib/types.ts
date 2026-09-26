@@ -73,20 +73,18 @@ export type OcrStatus =
   | "UNREADABLE"
   | "PARTIALLY_READABLE";
 
+export type DocumentType =
+  | "INCOME_CERTIFICATE"
+  | "CASTE_CERTIFICATE"
+  | "ACADEMIC_RECORD"
+  | "IDENTITY_DOCUMENT";
+
 export interface Document {
   id: string;
   application_id: string;
-  document_type: string;
+  document_type: DocumentType;
   ocr_status: OcrStatus;
 }
-
-/**
- * NOTE:
- * The exact document_type values and upload request/response contract
- * are still pending backend confirmation.
- *
- * Do not add guessed document types here yet.
- */
 
 /* -------------------------------------------------------------------------- */
 /* Validation                                                                 */
@@ -96,12 +94,12 @@ export type ValidationSeverity =
   | "NONE"
   | "LOW"
   | "MEDIUM"
-  | "HIGH";
+  | "HIGH"
+  | null;
 
 export interface ValidationResult {
   passed: boolean | null;
   rule_id: string;
-  rule_name: string;
   extracted_value: string | null;
   expected_condition: string | null;
   reasoning: string | null;
@@ -172,7 +170,7 @@ export const OCR_STATUS_LABELS: Record<OcrStatus, string> = {
  * Validation severity labels.
  */
 export const VALIDATION_SEVERITY_LABELS: Record<
-  ValidationSeverity,
+  Exclude<ValidationSeverity, null>,
   string
 > = {
   NONE: "None",
@@ -221,7 +219,7 @@ export function isOcrStatus(value: string): value is OcrStatus {
 
 export function isValidationSeverity(
   value: string,
-): value is ValidationSeverity {
+): value is Exclude<ValidationSeverity, null> {
   return (
     value === "NONE" ||
     value === "LOW" ||

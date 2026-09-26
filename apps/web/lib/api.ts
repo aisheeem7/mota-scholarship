@@ -1,10 +1,11 @@
 import type {
   Application,
   CreateApplicationRequest,
+  Document,
+  DocumentType,
 } from "./types";
 
-const API_URL =
-  process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:8000";
+const API_URL = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:8000";
 
 export interface ApiErrorResponse {
   detail?: string;
@@ -18,7 +19,7 @@ async function parseError(response: Response): Promise<string> {
       return body.detail;
     }
   } catch {
-    // Ignore invalid/non-JSON error responses.
+    // Fall through to the generic HTTP error below.
   }
 
   return `API request failed: ${response.status}`;
@@ -56,25 +57,12 @@ export async function apiPost<T>(
   return response.json() as Promise<T>;
 }
 
-/* -------------------------------------------------------------------------- */
-/* Application API                                                            */
-/* -------------------------------------------------------------------------- */
-
-/**
- * POST /api/v1/applications
- */
 export async function createApplication(
   payload: CreateApplicationRequest,
 ): Promise<Application> {
-  return apiPost<Application>(
-    "/api/v1/applications",
-    payload,
-  );
+  return apiPost<Application>("/api/v1/applications", payload);
 }
 
-/**
- * GET /api/v1/applications/{application_id}
- */
 export async function getApplication(
   applicationId: string,
 ): Promise<Application> {
@@ -83,11 +71,31 @@ export async function getApplication(
   );
 }
 
-/**
- * GET /api/v1/admin/applications
- *
- * Uses the shared Application contract. No frontend-only application type.
- */
 export async function getAdminApplications(): Promise<Application[]> {
   return apiGet<Application[]>("/api/v1/admin/applications");
+}
+
+export async function uploadApplicationDocument(
+  applicationId: string,
+  documentType: DocumentType,
+  file: File,
+): Promise<Document> {
+  const formData = new FormData();
+
+  formData.append("document_type", documentType);
+  formData.append("file", file);
+
+  const response = await fetch(
+    `${API_URL}/api/v1/applications/${applicationId}/documents`,
+    {
+      method: "POST",
+      body: formData,
+    },
+  );
+
+  if (!response.ok) {
+    throw new Error(await parseError(response));
+  }
+
+  return response.json() as Promise<Document>;
 }
