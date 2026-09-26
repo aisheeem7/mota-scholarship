@@ -1,11 +1,10 @@
-from fastapi import BackgroundTasks
-from app.services.ocr.pipeline import process_application_documents
 from datetime import datetime, timezone
 from pathlib import Path
 from uuid import UUID, uuid4
 
 from fastapi import (
     APIRouter,
+    BackgroundTasks,
     Depends,
     File,
     Form,
@@ -26,10 +25,18 @@ from app.schemas.application import (
 )
 from app.schemas.dbt import DBTTransactionResponse
 from app.schemas.validation import ValidationResult
+from app.services.ocr.pipeline import process_application_documents
+from app.services.validation.validation_service import get_rule_name
+
 
 router = APIRouter()
 
-ALLOWED_EXTENSIONS = {".pdf", ".jpg", ".jpeg", ".png"}
+ALLOWED_EXTENSIONS = {
+    ".pdf",
+    ".jpg",
+    ".jpeg",
+    ".png",
+}
 
 ALLOWED_CONTENT_TYPES = {
     "application/pdf",
@@ -86,10 +93,6 @@ def create_application(
 
     return result.data[0]
 
-
-# ============================================================
-# PROCESS APPLICATION
-# ============================================================
 
 # ============================================================
 # PROCESS APPLICATION
@@ -241,7 +244,19 @@ def get_validations(
             detail="Validation lookup failed",
         )
 
-    return result.data
+    validation_rows = []
+
+    for row in result.data or []:
+        validation_rows.append(
+            {
+                **row,
+                "rule_name": get_rule_name(
+                    row["rule_id"]
+                ),
+            }
+        )
+
+    return validation_rows
 
 
 # ============================================================
@@ -301,7 +316,9 @@ async def upload_document(
     # Validate extension
     # --------------------------------------------------------
 
-    extension = Path(file.filename or "").suffix.lower()
+    extension = Path(
+        file.filename or ""
+    ).suffix.lower()
 
     if extension not in ALLOWED_EXTENSIONS:
         raise HTTPException(
@@ -371,7 +388,9 @@ async def upload_document(
     # --------------------------------------------------------
 
     try:
-        supabase.storage.from_(STORAGE_BUCKET).upload(
+        supabase.storage.from_(
+            STORAGE_BUCKET
+        ).upload(
             storage_path,
             file_bytes,
             {
@@ -396,7 +415,9 @@ async def upload_document(
 
     except Exception:
         try:
-            supabase.storage.from_(STORAGE_BUCKET).remove(
+            supabase.storage.from_(
+                STORAGE_BUCKET
+            ).remove(
                 [storage_path]
             )
         except Exception:
@@ -409,7 +430,9 @@ async def upload_document(
 
     if not document_result.data:
         try:
-            supabase.storage.from_(STORAGE_BUCKET).remove(
+            supabase.storage.from_(
+                STORAGE_BUCKET
+            ).remove(
                 [storage_path]
             )
         except Exception:
@@ -421,7 +444,7 @@ async def upload_document(
         )
 
     # --------------------------------------------------------
-    # Return frozen document response
+    # Return document response
     # --------------------------------------------------------
 
     return DocumentResponse(
