@@ -20,6 +20,9 @@ from app.services.ocr.ocr_service import (
     OCRProcessingError,
     run_ocr,
 )
+from app.services.risk.risk_service import (
+    calculate_risk,
+)
 from app.services.validation.validation_service import (
     validate_extraction,
 )
@@ -67,14 +70,6 @@ def _persist_match_results(
 ) -> None:
     """
     Persist cross-document matching results.
-
-    The student_document_matches table stores:
-    - left_document_id
-    - right_document_id
-    - field_name
-    - similarity
-    - match_status
-    - reasoning
     """
 
     for result in match_results:
@@ -115,8 +110,10 @@ def process_application_documents(
     9. Collect successful extractions.
     10. Cross-match extracted values between documents.
     11. Persist cross-document match results.
-    12. Route conflicts to FLAGGED_FOR_REVIEW.
-    13. Keep unreadable cases DEFICIENT.
+    12. Calculate prototype risk score.
+    13. Persist applications.risk_score.
+    14. Route conflicts to FLAGGED_FOR_REVIEW.
+    15. Keep unreadable cases DEFICIENT.
 
     Extraction providers:
     - mock
@@ -177,6 +174,7 @@ def process_application_documents(
             .update(
                 {
                     "status": ApplicationStatus.DEFICIENT.value,
+                    "risk_score": 20,
                 }
             )
             .eq("id", str(application_id))
@@ -273,7 +271,7 @@ def process_application_documents(
             )
 
             # -------------------------------------------------
-            # 5h. Keep successful extraction for matching
+            # 5h. Keep extraction for matching
             # -------------------------------------------------
 
             extracted_documents.append(
@@ -347,10 +345,6 @@ def process_application_documents(
             extracted_documents
         )
 
-        # -----------------------------------------------------
-        # 6a. Persist match evidence
-        # -----------------------------------------------------
-
         _persist_match_results(
             application_id=application_id,
             match_results=match_results,
@@ -358,7 +352,7 @@ def process_application_documents(
         )
 
     # ---------------------------------------------------------
-    # 7. Determine whether matching found a conflict
+    # 7. Determine match conflict
     # ---------------------------------------------------------
 
     matching_conflict = has_conflict(
@@ -366,28 +360,52 @@ def process_application_documents(
     )
 
     # ---------------------------------------------------------
-    # 8. Final application status
+    # 8. Calculate prototype risk
+    # ---------------------------------------------------------
+
+    risk_assessment = calculate_risk(
+        match_results=match_results,
+        duplicate=False,
+        missing_document=False,
+        unreadable_document=any_unreadable,
+    )
+
+    # ---------------------------------------------------------
+    # 9. Persist risk score
+    # ---------------------------------------------------------
+
+    (
+        supabase.table("applications")
+        .update(
+            {
+                "risk_score": risk_assessment.score,
+            }
+        )
+        .eq("id", str(application_id))
+        .execute()
+    )
+
+    # ---------------------------------------------------------
+    # 10. Determine final application status
     # ---------------------------------------------------------
 
     if any_unreadable:
         final_status = ApplicationStatus.DEFICIENT.value
 
     elif matching_conflict:
-        # -----------------------------------------------------
-        # Cross-document mismatch requires human review.
-        # It is NOT treated as automatic rejection or fraud.
-        # -----------------------------------------------------
+        # Cross-document conflict requires human review.
+        # It is not automatic rejection or fraud.
         final_status = (
             ApplicationStatus.FLAGGED_FOR_REVIEW.value
         )
 
     else:
-        # Validation failures, risk scoring, and full workflow
-        # transitions will be handled by the next stages.
+        # Full workflow decision comes after risk/workflow
+        # integration is completed.
         final_status = ApplicationStatus.PROCESSING.value
 
     # ---------------------------------------------------------
-    # 9. Persist application status
+    # 11. Persist final application status
     # ---------------------------------------------------------
 
     (
