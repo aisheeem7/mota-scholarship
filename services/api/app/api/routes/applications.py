@@ -164,10 +164,10 @@ def process_application(
             reason="Document processing started",
             supabase=supabase,
         )
-    except ValueError as exc:
+    except ValueError:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
-            detail=str(exc),
+            detail="Application cannot be processed from its current status",
         )
 
     # --------------------------------------------------------
@@ -276,10 +276,10 @@ def resubmit_application(
             reason="Applicant resubmitted application",
             supabase=supabase,
         )
-    except ValueError as exc:
+    except ValueError:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
-            detail=str(exc),
+            detail="Application cannot be resubmitted from its current status",
         )
 
     # --------------------------------------------------------
