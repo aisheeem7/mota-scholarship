@@ -1,4 +1,5 @@
 from datetime import datetime, timezone
+import logging
 from pathlib import Path
 from uuid import UUID, uuid4
 
@@ -33,6 +34,7 @@ from app.services.workflow.workflow_service import (
 
 
 router = APIRouter()
+logger = logging.getLogger(__name__)
 
 ALLOWED_EXTENSIONS = {
     ".pdf",
@@ -83,6 +85,12 @@ def create_application(
             .execute()
         )
     except Exception:
+        # Keep database/PostgREST details server-side for debugging.
+        # The client receives only the stable public error contract.
+        logger.exception(
+            "Application creation failed for application_id=%s",
+            application_id,
+        )
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail="Application creation failed",
