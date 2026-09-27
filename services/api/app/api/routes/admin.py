@@ -76,10 +76,10 @@ def review_application(
             reason="Application requires administrative review.",
             supabase=supabase,
         )
-    except ValueError as exc:
+    except ValueError:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
-            detail=str(exc),
+            detail="Application cannot enter administrative review from its current status",
         )
 
     # --------------------------------------------------------
@@ -108,10 +108,10 @@ def review_application(
             reason=payload.reason,
             supabase=supabase,
         )
-    except ValueError as exc:
+    except ValueError:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
-            detail=str(exc),
+            detail="Application decision could not be applied from its current status",
         )
 
     # --------------------------------------------------------

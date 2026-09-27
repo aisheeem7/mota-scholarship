@@ -4,7 +4,11 @@ Version: 0.1.0
 
 ## Base URL
 
+Default local backend:
+
 http://127.0.0.1:8000
+
+The frontend may target a different local port through `NEXT_PUBLIC_API_URL`. The current E2E hardening run uses http://127.0.0.1:8001.
 
 ---
 
@@ -210,6 +214,7 @@ Response
 [
   {
     "rule_id": "RULE_001",
+    "rule_name": "Example Rule",
     "passed": true,
     "extracted_value": "120000",
     "expected_condition": "Income evidence provided",
@@ -266,7 +271,7 @@ The DBT endpoint reads from the dbt_mock_transactions table.
 
 The validation endpoint reads validation records from the validations table.
 
-OCR, AI extraction, deterministic validation, cross-document matching, risk calculation, and workflow processing are separate processing stages and are not included in the current upload implementation.
+Document upload stores files and metadata; processing is started explicitly with POST /api/v1/applications/{application_id}/process. The processing pipeline then runs OCR, configured extraction, deterministic validation, cross-document matching, risk calculation, and workflow transitions.
 ---
 
 ## POST /api/v1/applications/{application_id}/process
