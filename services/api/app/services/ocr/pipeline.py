@@ -1,3 +1,4 @@
+import logging
 from uuid import UUID
 
 from supabase import Client
@@ -36,6 +37,16 @@ from app.services.workflow.workflow_service import (
 
 
 STORAGE_BUCKET = "application-documents"
+
+logger = logging.getLogger(__name__)
+
+FAILURE_ELIGIBILITY_RULES = {
+    "CATEGORY",
+    "ACADEMIC_LEVEL",
+    "INCOME",
+    "INSTITUTION",
+    "COURSE_ACADEMIC",
+}
 
 
 def _persist_validation_results(
@@ -97,7 +108,7 @@ def _persist_match_results(
         ).execute()
 
 
-def process_application_documents(
+def _process_application_documents(
     application_id: UUID,
     supabase: Client,
 ) -> None:
@@ -372,7 +383,8 @@ def process_application_documents(
             # -------------------------------------------------
 
             if any(
-                result.passed is False
+                result.passed is not True
+                and result.rule_id in FAILURE_ELIGIBILITY_RULES
                 for result in validation_results
             ):
                 validation_failed = True
@@ -558,3 +570,63 @@ def process_application_documents(
         reason=reason,
         supabase=supabase,
     )
+
+def _mark_processing_failure(
+    application_id: UUID,
+    supabase: Client,
+) -> None:
+    """Move an unexpectedly failed background job out of PROCESSING safely."""
+
+    try:
+        result = (
+            supabase.table("applications")
+            .select("status")
+            .eq("id", str(application_id))
+            .limit(1)
+            .execute()
+        )
+
+        rows = result.data or []
+
+        if not rows:
+            return
+
+        current_status = ApplicationStatus(rows[0]["status"])
+
+        if current_status == ApplicationStatus.PROCESSING:
+            transition_application(
+                application_id=application_id,
+                from_status=ApplicationStatus.PROCESSING,
+                to_status=ApplicationStatus.DEFICIENT,
+                reason="Document processing failed unexpectedly",
+                supabase=supabase,
+            )
+    except Exception:
+        logger.exception(
+            "Unable to record background processing failure for "
+            "application_id=%s",
+            application_id,
+        )
+
+
+def process_application_documents(
+    application_id: UUID,
+    supabase: Client,
+) -> None:
+    """Run the document pipeline and contain unexpected background failures."""
+
+    try:
+        _process_application_documents(
+            application_id=application_id,
+            supabase=supabase,
+        )
+    except Exception:
+        logger.exception(
+            "Background document processing failed for "
+            "application_id=%s",
+            application_id,
+        )
+        _mark_processing_failure(
+            application_id=application_id,
+            supabase=supabase,
+        )
