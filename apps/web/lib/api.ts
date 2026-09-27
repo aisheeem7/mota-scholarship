@@ -3,9 +3,11 @@ import type {
   CreateApplicationRequest,
   Document,
   DocumentType,
+  ValidationResult,
 } from "./types";
 
-const API_URL = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:8000";
+const API_URL =
+  process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:8000";
 
 export interface ApiErrorResponse {
   detail?: string;
@@ -60,7 +62,10 @@ export async function apiPost<T>(
 export async function createApplication(
   payload: CreateApplicationRequest,
 ): Promise<Application> {
-  return apiPost<Application>("/api/v1/applications", payload);
+  return apiPost<Application>(
+    "/api/v1/applications",
+    payload,
+  );
 }
 
 export async function getApplication(
@@ -71,8 +76,27 @@ export async function getApplication(
   );
 }
 
+export async function processApplication(
+  applicationId: string,
+): Promise<Application> {
+  return apiPost<Application>(
+    `/api/v1/applications/${applicationId}/process`,
+    {},
+  );
+}
+
+export async function getApplicationValidations(
+  applicationId: string,
+): Promise<ValidationResult[]> {
+  return apiGet<ValidationResult[]>(
+    `/api/v1/applications/${applicationId}/validations`,
+  );
+}
+
 export async function getAdminApplications(): Promise<Application[]> {
-  return apiGet<Application[]>("/api/v1/admin/applications");
+  return apiGet<Application[]>(
+    "/api/v1/admin/applications",
+  );
 }
 
 export async function uploadApplicationDocument(

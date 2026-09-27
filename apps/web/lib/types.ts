@@ -100,6 +100,7 @@ export type ValidationSeverity =
 export interface ValidationResult {
   passed: boolean | null;
   rule_id: string;
+  rule_name: string;
   extracted_value: string | null;
   expected_condition: string | null;
   reasoning: string | null;

@@ -43,9 +43,8 @@ export function ValidationScorecard({
           <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
             <div>
               <h3 className="font-medium">
-                {validation.rule_id}
+                {validation.rule_name}
               </h3>
-
               <p className="mt-1 text-xs text-muted-foreground">
                 Rule ID: {validation.rule_id}
               </p>
