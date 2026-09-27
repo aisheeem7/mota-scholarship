@@ -4,6 +4,7 @@ from uuid import UUID, uuid4
 
 from fastapi import (
     APIRouter,
+    BackgroundTasks,
     Depends,
     File,
     Form,
@@ -24,10 +25,21 @@ from app.schemas.application import (
 )
 from app.schemas.dbt import DBTTransactionResponse
 from app.schemas.validation import ValidationResult
+from app.services.ocr.pipeline import process_application_documents
+from app.services.validation.validation_service import get_rule_name
+from app.services.workflow.workflow_service import (
+    transition_application,
+)
+
 
 router = APIRouter()
 
-ALLOWED_EXTENSIONS = {".pdf", ".jpg", ".jpeg", ".png"}
+ALLOWED_EXTENSIONS = {
+    ".pdf",
+    ".jpg",
+    ".jpeg",
+    ".png",
+}
 
 ALLOWED_CONTENT_TYPES = {
     "application/pdf",
@@ -83,6 +95,222 @@ def create_application(
         )
 
     return result.data[0]
+
+
+# ============================================================
+# PROCESS APPLICATION
+# ============================================================
+
+@router.post(
+    "/{application_id}/process",
+    response_model=ApplicationResponse,
+    status_code=status.HTTP_202_ACCEPTED,
+)
+def process_application(
+    application_id: UUID,
+    background_tasks: BackgroundTasks,
+    supabase: Client = Depends(get_supabase),
+):
+    # --------------------------------------------------------
+    # Verify application exists
+    # --------------------------------------------------------
+
+    try:
+        application_result = (
+            supabase.table("applications")
+            .select(
+                "id, student_id, scheme_id, status, "
+                "risk_score, created_at, updated_at"
+            )
+            .eq("id", str(application_id))
+            .limit(1)
+            .execute()
+        )
+    except Exception:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Application lookup failed",
+        )
+
+    if not application_result.data:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Application not found",
+        )
+
+    application = application_result.data[0]
+
+    # --------------------------------------------------------
+    # Move application into PROCESSING through workflow service
+    # --------------------------------------------------------
+
+    current_status = ApplicationStatus(
+        application["status"]
+    )
+
+    try:
+        transition_application(
+            application_id=application_id,
+            from_status=current_status,
+            to_status=ApplicationStatus.PROCESSING,
+            reason="Document processing started",
+            supabase=supabase,
+        )
+    except ValueError as exc:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=str(exc),
+        )
+
+    # --------------------------------------------------------
+    # Update timestamp
+    # --------------------------------------------------------
+
+    now = datetime.now(timezone.utc)
+
+    try:
+        timestamp_result = (
+            supabase.table("applications")
+            .update(
+                {
+                    "updated_at": now.isoformat(),
+                }
+            )
+            .eq("id", str(application_id))
+            .execute()
+        )
+    except Exception:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Application processing could not be started",
+        )
+
+    # --------------------------------------------------------
+    # Build response reflecting PROCESSING state
+    # --------------------------------------------------------
+
+    if timestamp_result.data:
+        response_application = timestamp_result.data[0]
+    else:
+        response_application = {
+            **application,
+            "status": ApplicationStatus.PROCESSING.value,
+            "updated_at": now.isoformat(),
+        }
+
+    # --------------------------------------------------------
+    # Start OCR pipeline in background
+    # --------------------------------------------------------
+
+    background_tasks.add_task(
+        process_application_documents,
+        application_id,
+        supabase,
+    )
+
+    return response_application
+
+
+# ============================================================
+# RESUBMIT APPLICATION
+# ============================================================
+
+@router.post(
+    "/{application_id}/resubmit",
+    response_model=ApplicationResponse,
+)
+def resubmit_application(
+    application_id: UUID,
+    supabase: Client = Depends(get_supabase),
+):
+    # --------------------------------------------------------
+    # Verify application exists
+    # --------------------------------------------------------
+
+    try:
+        application_result = (
+            supabase.table("applications")
+            .select(
+                "id, student_id, scheme_id, status, "
+                "risk_score, created_at, updated_at"
+            )
+            .eq("id", str(application_id))
+            .limit(1)
+            .execute()
+        )
+    except Exception:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Application lookup failed",
+        )
+
+    if not application_result.data:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Application not found",
+        )
+
+    application = application_result.data[0]
+
+    current_status = ApplicationStatus(
+        application["status"]
+    )
+
+    # --------------------------------------------------------
+    # DEFICIENT -> RESUBMITTED
+    # --------------------------------------------------------
+
+    try:
+        transition_application(
+            application_id=application_id,
+            from_status=current_status,
+            to_status=ApplicationStatus.RESUBMITTED,
+            reason="Applicant resubmitted application",
+            supabase=supabase,
+        )
+    except ValueError as exc:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=str(exc),
+        )
+
+    # --------------------------------------------------------
+    # Update timestamp
+    # --------------------------------------------------------
+
+    now = datetime.now(timezone.utc)
+
+    try:
+        timestamp_result = (
+            supabase.table("applications")
+            .update(
+                {
+                    "updated_at": now.isoformat(),
+                }
+            )
+            .eq("id", str(application_id))
+            .execute()
+        )
+    except Exception:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Application resubmission could not be completed",
+        )
+
+    # --------------------------------------------------------
+    # Build response reflecting RESUBMITTED state
+    # --------------------------------------------------------
+
+    if timestamp_result.data:
+        response_application = timestamp_result.data[0]
+    else:
+        response_application = {
+            **application,
+            "status": ApplicationStatus.RESUBMITTED.value,
+            "updated_at": now.isoformat(),
+        }
+
+    return response_application
 
 
 # ============================================================
@@ -151,7 +379,19 @@ def get_validations(
             detail="Validation lookup failed",
         )
 
-    return result.data
+    validation_rows = []
+
+    for row in result.data or []:
+        validation_rows.append(
+            {
+                **row,
+                "rule_name": get_rule_name(
+                    row["rule_id"]
+                ),
+            }
+        )
+
+    return validation_rows
 
 
 # ============================================================
@@ -211,7 +451,9 @@ async def upload_document(
     # Validate extension
     # --------------------------------------------------------
 
-    extension = Path(file.filename or "").suffix.lower()
+    extension = Path(
+        file.filename or ""
+    ).suffix.lower()
 
     if extension not in ALLOWED_EXTENSIONS:
         raise HTTPException(
@@ -281,7 +523,9 @@ async def upload_document(
     # --------------------------------------------------------
 
     try:
-        supabase.storage.from_(STORAGE_BUCKET).upload(
+        supabase.storage.from_(
+            STORAGE_BUCKET
+        ).upload(
             storage_path,
             file_bytes,
             {
@@ -305,9 +549,10 @@ async def upload_document(
         )
 
     except Exception:
-        # Clean up storage if database insertion fails
         try:
-            supabase.storage.from_(STORAGE_BUCKET).remove(
+            supabase.storage.from_(
+                STORAGE_BUCKET
+            ).remove(
                 [storage_path]
             )
         except Exception:
@@ -320,7 +565,9 @@ async def upload_document(
 
     if not document_result.data:
         try:
-            supabase.storage.from_(STORAGE_BUCKET).remove(
+            supabase.storage.from_(
+                STORAGE_BUCKET
+            ).remove(
                 [storage_path]
             )
         except Exception:
@@ -332,7 +579,7 @@ async def upload_document(
         )
 
     # --------------------------------------------------------
-    # Return frozen document response
+    # Return document response
     # --------------------------------------------------------
 
     return DocumentResponse(
