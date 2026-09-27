@@ -143,11 +143,13 @@ export default function UploadPage() {
   const [selectedScheme, setSelectedScheme] =
     useState<SchemeId>("PRE_MATRIC");
 
-  const [selectedDocumentType, setSelectedDocumentType] =
-    useState<DocumentType>("INCOME_CERTIFICATE");
-
   const [selectedFiles, setSelectedFiles] =
-    useState<File[]>([]);
+    useState<Record<DocumentType, File | null>>({
+      INCOME_CERTIFICATE: null,
+      CASTE_CERTIFICATE: null,
+      ACADEMIC_RECORD: null,
+      IDENTITY_DOCUMENT: null,
+    });
 
   const [application, setApplication] =
     useState<Application | null>(null);
@@ -170,38 +172,35 @@ export default function UploadPage() {
     process.env.NEXT_PUBLIC_DEMO_STUDENT_ID;
 
   useEffect(() => {
+    pollCancelled.current = false;
+
     return () => {
       pollCancelled.current = true;
     };
   }, []);
 
   function handleFileChange(
+    documentType: DocumentType,
     fileList: FileList | null,
   ) {
-    if (!fileList) {
+    if (!fileList || fileList.length === 0) {
       return;
     }
 
-    const files = Array.from(fileList);
+    const file = fileList[0];
 
-    const invalidFile = files.find((file) => {
-      const extension =
-        `.${file.name.split(".").pop()?.toLowerCase()}`;
+    const extension =
+      `.${file.name.split(".").pop()?.toLowerCase()}`;
 
-      return (
-        ![".pdf", ".jpg", ".jpeg", ".png"].includes(
-          extension,
-        ) ||
-        file.size === 0 ||
-        file.size > MAX_FILE_SIZE
-      );
-    });
-
-    if (invalidFile) {
-      setSelectedFiles([]);
-
+    if (
+      ![".pdf", ".jpg", ".jpeg", ".png"].includes(
+        extension,
+      ) ||
+      file.size === 0 ||
+      file.size > MAX_FILE_SIZE
+    ) {
       setErrorMessage(
-        `${invalidFile.name} is invalid. Use a non-empty PDF, JPG, JPEG or PNG file up to 10 MB.`,
+        `${file.name} is invalid. Use a non-empty PDF, JPG, JPEG or PNG file up to 10 MB.`,
       );
 
       setStatus("ERROR");
@@ -210,7 +209,10 @@ export default function UploadPage() {
     }
 
     setErrorMessage(null);
-    setSelectedFiles(files);
+    setSelectedFiles((current) => ({
+      ...current,
+      [documentType]: file,
+    }));
     setStatus("DEFAULT");
   }
 
@@ -298,9 +300,16 @@ export default function UploadPage() {
       return;
     }
 
-    if (selectedFiles.length === 0) {
+    const missingDocumentTypes = DOCUMENT_TYPES.filter(
+      (documentType) =>
+        !selectedFiles[documentType.value],
+    );
+
+    if (missingDocumentTypes.length > 0) {
       setErrorMessage(
-        "Select at least one document to upload.",
+        `Please select all required documents before verification: ${missingDocumentTypes
+          .map((documentType) => documentType.label)
+          .join(", ")}.`,
       );
 
       setStatus("ERROR");
@@ -314,11 +323,17 @@ export default function UploadPage() {
     try {
       const uploaded: Document[] = [];
 
-      for (const file of selectedFiles) {
+      for (const documentType of DOCUMENT_TYPES) {
+        const file = selectedFiles[documentType.value];
+
+        if (!file) {
+          continue;
+        }
+
         const document =
           await uploadApplicationDocument(
             application.id,
-            selectedDocumentType,
+            documentType.value,
             file,
           );
 
@@ -330,7 +345,12 @@ export default function UploadPage() {
         ...uploaded,
       ]);
 
-      setSelectedFiles([]);
+      setSelectedFiles({
+        INCOME_CERTIFICATE: null,
+        CASTE_CERTIFICATE: null,
+        ACADEMIC_RECORD: null,
+        IDENTITY_DOCUMENT: null,
+      });
 
       setStatus("PROCESSING");
 
@@ -451,138 +471,109 @@ export default function UploadPage() {
           </CardHeader>
 
           <CardContent className="space-y-6">
-            <div>
-              <label
-                htmlFor="document-type"
-                className="mb-2 block text-sm font-medium"
-              >
-                Document category
-              </label>
+            <div className="rounded-lg border p-4">
+              <p className="font-medium">
+                Select all required documents
+              </p>
 
-              <select
-                id="document-type"
-                value={selectedDocumentType}
-                onChange={(event) =>
-                  setSelectedDocumentType(
-                    event.target
-                      .value as DocumentType,
-                  )
-                }
-                disabled={
-                  !application ||
-                  status === "UPLOADING" ||
-                  status === "PROCESSING"
-                }
-                className="w-full rounded-md border bg-background px-3 py-2 text-sm"
-              >
-                {DOCUMENT_TYPES.map(
-                  (documentType) => (
-                    <option
+              <p className="mt-1 text-sm text-muted-foreground">
+                Choose one file for each document. Verification
+                starts only after all four documents are uploaded.
+              </p>
+
+              <div className="mt-4 space-y-3">
+                {DOCUMENT_TYPES.map((documentType) => {
+                  const selectedFile =
+                    selectedFiles[documentType.value];
+
+                  return (
+                    <div
                       key={documentType.value}
-                      value={documentType.value}
+                      className="flex flex-col gap-3 rounded-md border p-4 sm:flex-row sm:items-center sm:justify-between"
                     >
-                      {documentType.label}
-                    </option>
-                  ),
-                )}
-              </select>
+                      <div className="min-w-0">
+                        <p className="text-sm font-medium">
+                          {documentType.label}
+                        </p>
+
+                        <p className="mt-1 truncate text-xs text-muted-foreground">
+                          {selectedFile
+                            ? selectedFile.name
+                            : "No file selected"}
+                        </p>
+                      </div>
+
+                      <label
+                        htmlFor={`document-upload-${documentType.value}`}
+                        className={`inline-flex shrink-0 cursor-pointer items-center justify-center rounded-md border px-4 py-2 text-sm font-medium transition-colors ${
+                          application &&
+                          status !== "UPLOADING" &&
+                          status !== "PROCESSING"
+                            ? "hover:bg-accent hover:text-accent-foreground"
+                            : "pointer-events-none opacity-50"
+                        }`}
+                      >
+                        {selectedFile
+                          ? "Change file"
+                          : "Choose file"}
+                      </label>
+
+                      <input
+                        id={`document-upload-${documentType.value}`}
+                        type="file"
+                        accept={ACCEPTED_TYPES}
+                        disabled={
+                          !application ||
+                          status === "UPLOADING" ||
+                          status === "PROCESSING"
+                        }
+                        className="sr-only"
+                        onChange={(event) => {
+                          handleFileChange(
+                            documentType.value,
+                            event.target.files,
+                          );
+
+                          event.currentTarget.value = "";
+                        }}
+                      />
+                    </div>
+                  );
+                })}
+              </div>
             </div>
 
-            <div className="rounded-lg border border-dashed p-8 text-center">
-              <UploadCloud className="mx-auto h-10 w-10 text-muted-foreground" />
-
-              <div className="mt-4">
-                <p className="font-medium">
-                  Choose documents to upload
+            {Object.values(selectedFiles).some(Boolean) && (
+              <div className="rounded-md border bg-muted/30 p-4">
+                <p className="text-sm font-medium">
+                  Documents selected:{" "}
+                  {
+                    Object.values(selectedFiles).filter(
+                      Boolean,
+                    ).length
+                  }/4
                 </p>
 
-                <span className="mt-1 block text-sm text-muted-foreground">
-                  Accepted formats: PDF, JPG,
-                  JPEG and PNG. Maximum size:
-                  10 MB.
-                </span>
-              </div>
-
-              <div className="mt-6">
-                <label
-                  htmlFor="document-upload"
-                  className={`inline-flex cursor-pointer items-center justify-center rounded-md border px-4 py-2 text-sm font-medium transition-colors ${
-                    application &&
-                    status !== "UPLOADING" &&
-                    status !== "PROCESSING"
-                      ? "hover:bg-accent hover:text-accent-foreground"
-                      : "pointer-events-none opacity-50"
-                  }`}
-                >
-                  Select files
-                </label>
-
-                <input
-                  id="document-upload"
-                  type="file"
-                  accept={ACCEPTED_TYPES}
-                  multiple
-                  disabled={
-                    !application ||
-                    status === "UPLOADING" ||
-                    status === "PROCESSING"
-                  }
-                  className="sr-only"
-                  onChange={(event) => {
-                    handleFileChange(
-                      event.target.files,
-                    );
-
-                    event.currentTarget.value =
-                      "";
-                  }}
-                />
-              </div>
-            </div>
-
-            {selectedFiles.length > 0 && (
-              <div className="space-y-3">
-                <h2 className="font-medium">
-                  Selected files
-                </h2>
-
-                <div className="space-y-2">
-                  {selectedFiles.map((file) => (
-                    <div
-                      key={`${file.name}-${file.lastModified}`}
-                      className="rounded-md border p-3"
-                    >
-                      <p className="truncate text-sm font-medium">
-                        {file.name}
-                      </p>
-
-                      <p className="text-xs text-muted-foreground">
-                        {(
-                          file.size /
-                          1024 /
-                          1024
-                        ).toFixed(2)}{" "}
-                        MB
-                      </p>
-                    </div>
-                  ))}
-                </div>
-
-                <Button
-                  type="button"
-                  onClick={handleUpload}
-                  disabled={
-                    !application ||
-                    status === "UPLOADING" ||
-                    status === "PROCESSING"
-                  }
-                >
-                  {status === "UPLOADING"
-                    ? "Uploading..."
-                    : "Upload and verify"}
-                </Button>
+                <p className="mt-1 text-xs text-muted-foreground">
+                  All four documents are required for this
+                  prototype verification flow.
+                </p>
               </div>
             )}
+
+            <Button
+              type="button"
+              onClick={handleUpload}
+              disabled={
+                !application ||
+                status === "UPLOADING" ||
+                status === "PROCESSING"
+              }
+            >
+              {status === "UPLOADING"
+                ? "Uploading..."
+                : "Upload all documents & verify"}
+            </Button>
 
             {status === "UPLOADING" && (
               <div className="space-y-3">
