@@ -1256,8 +1256,9 @@ def test_resubmit_application_invalid_status():
     )
 
     assert response.status_code == 400
-    assert "Invalid workflow transition" in response.json()["detail"]
-
+    assert response.json()["detail"] == (
+    "Application cannot be resubmitted from its current status"
+    )
     assert fake_supabase.database.get(
         "workflow_events",
         [],
