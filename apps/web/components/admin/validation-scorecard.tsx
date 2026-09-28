@@ -2,7 +2,6 @@ import { Badge } from "@/components/ui/badge";
 import { useLanguage } from "@/components/layout/language-provider";
 import type { TranslationKey } from "@/lib/i18n";
 import {
-  VALIDATION_SEVERITY_LABELS,
   type ValidationResult,
 } from "@/lib/types";
 
@@ -30,7 +29,11 @@ function severityLabel(
     return t("notAvailable");
   }
 
-  return VALIDATION_SEVERITY_LABELS[severity];
+  const keys: Record<Exclude<ValidationResult["severity"], null>, TranslationKey> = {
+    NONE: "none", LOW: "low", MEDIUM: "medium", HIGH: "high",
+  };
+
+  return t(keys[severity]);
 }
 
 export function ValidationScorecard({
