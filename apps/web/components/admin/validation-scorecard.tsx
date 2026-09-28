@@ -1,4 +1,5 @@
 import { Badge } from "@/components/ui/badge";
+import { useLanguage } from "@/components/layout/language-provider";
 import {
   VALIDATION_SEVERITY_LABELS,
   type ValidationResult,
@@ -8,23 +9,24 @@ interface ValidationScorecardProps {
   validations: ValidationResult[];
 }
 
-function passedLabel(passed: boolean | null): string {
+function passedLabel(passed: boolean | null, t: (key: any) => string): string {
   if (passed === true) {
-    return "Passed";
+    return t("passed");
   }
 
   if (passed === false) {
-    return "Not passed";
+    return t("notPassed");
   }
 
-  return "Not evaluable — required evidence is missing or unreadable.";
+  return t("notAvailable");
 }
 
 function severityLabel(
   severity: ValidationResult["severity"],
+  t: (key: any) => string,
 ): string {
   if (severity === null) {
-    return "Not available";
+    return t("notAvailable");
   }
 
   return VALIDATION_SEVERITY_LABELS[severity];
@@ -36,7 +38,7 @@ export function ValidationScorecard({
   if (validations.length === 0) {
     return (
       <p className="text-sm text-muted-foreground">
-        No validation results available.
+        {t("noValidation")}
       </p>
     );
   }
@@ -62,21 +64,21 @@ export function ValidationScorecard({
             <div className="flex flex-wrap items-center gap-3">
               <div className="flex items-center gap-1.5">
                 <span className="text-xs text-muted-foreground">
-                  Severity:
+                  {t("severity")}:
                 </span>
 
                 <Badge variant="secondary">
-                  {severityLabel(validation.severity)}
+                  {severityLabel(validation.severity, t)}
                 </Badge>
               </div>
 
               <div className="flex items-center gap-1.5">
                 <span className="text-xs text-muted-foreground">
-                  Result:
+                  {t("result")}:
                 </span>
 
                 <Badge variant="outline">
-                  {passedLabel(validation.passed)}
+                  {passedLabel(validation.passed, t)}
                 </Badge>
               </div>
             </div>
@@ -85,7 +87,7 @@ export function ValidationScorecard({
           <dl className="mt-4 grid gap-4 sm:grid-cols-3">
             <div>
               <dt className="text-xs font-medium text-muted-foreground">
-                Extracted value
+                {t("extractedValue")}
               </dt>
 
               <dd className="mt-1 text-sm">
@@ -96,7 +98,7 @@ export function ValidationScorecard({
 
             <div>
               <dt className="text-xs font-medium text-muted-foreground">
-                Expected condition
+                {t("expectedCondition")}
               </dt>
 
               <dd className="mt-1 text-sm">
@@ -118,7 +120,7 @@ export function ValidationScorecard({
 
           <div className="mt-4">
             <p className="text-xs font-medium text-muted-foreground">
-              Reasoning
+              {t("reasoning")}
             </p>
 
             <p className="mt-1 text-sm">
