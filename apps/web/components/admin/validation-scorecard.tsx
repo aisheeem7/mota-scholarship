@@ -1,5 +1,6 @@
 import { Badge } from "@/components/ui/badge";
 import { useLanguage } from "@/components/layout/language-provider";
+import type { TranslationKey } from "@/lib/i18n";
 import {
   VALIDATION_SEVERITY_LABELS,
   type ValidationResult,
@@ -9,7 +10,7 @@ interface ValidationScorecardProps {
   validations: ValidationResult[];
 }
 
-function passedLabel(passed: boolean | null, t: (key: any) => string): string {
+function passedLabel(passed: boolean | null, t: (key: TranslationKey) => string): string {
   if (passed === true) {
     return t("passed");
   }
@@ -35,6 +36,8 @@ function severityLabel(
 export function ValidationScorecard({
   validations,
 }: ValidationScorecardProps) {
+  const { t } = useLanguage();
+
   if (validations.length === 0) {
     return (
       <p className="text-sm text-muted-foreground">
@@ -92,7 +95,7 @@ export function ValidationScorecard({
 
               <dd className="mt-1 text-sm">
                 {validation.extracted_value ??
-                  "Not available"}
+                  t("notAvailable")}
               </dd>
             </div>
 
@@ -113,7 +116,7 @@ export function ValidationScorecard({
               </dt>
 
               <dd className="mt-1 text-sm">
-                {passedLabel(validation.passed)}
+                {passedLabel(validation.passed, t)}
               </dd>
             </div>
           </dl>
@@ -125,7 +128,7 @@ export function ValidationScorecard({
 
             <p className="mt-1 text-sm">
               {validation.reasoning ??
-                "No reasoning available."}
+                t("noReasoning")}
             </p>
           </div>
         </article>
