@@ -291,9 +291,7 @@ export default function UploadPage() {
         return currentApplication;
       }
 
-      setProcessingMessage(
-        `Verification is still processing... (${attempt + 1}/${MAX_POLL_ATTEMPTS})`,
-      );
+      setProcessingMessage(`${t("verificationProcessing")}... (${attempt + 1}/${MAX_POLL_ATTEMPTS})`);
     }
 
     throw new Error(
@@ -362,9 +360,7 @@ export default function UploadPage() {
 
       setStatus("PROCESSING");
 
-      setProcessingMessage(
-        "Starting OCR and verification...",
-      );
+      setProcessingMessage(t("startingVerification"));
 
       const processingApplication =
         await processApplication(application.id);
