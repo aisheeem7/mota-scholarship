@@ -22,6 +22,7 @@ import { Progress } from "@/components/ui/progress";
 import {
   createApplication,
   getApplication,
+  getApplicationDocuments,
   getApplicationValidations,
   processApplication,
   uploadApplicationDocument,
@@ -270,10 +271,14 @@ export default function UploadPage() {
 
       await wait(POLL_INTERVAL_MS);
 
-      const currentApplication =
-        await getApplication(applicationId);
+      const [currentApplication, currentDocuments] =
+        await Promise.all([
+          getApplication(applicationId),
+          getApplicationDocuments(applicationId),
+        ]);
 
       setApplication(currentApplication);
+      setUploadedDocuments(currentDocuments);
 
       if (
         TERMINAL_STATUSES.has(
@@ -655,9 +660,7 @@ export default function UploadPage() {
                     >
                       <div>
                         <p className="text-sm font-medium">
-                          {
-                            document.document_type
-                          }
+                          {document.document_type}
                         </p>
 
                         <p className="text-xs text-muted-foreground">

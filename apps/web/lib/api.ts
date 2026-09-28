@@ -123,3 +123,11 @@ export async function uploadApplicationDocument(
 
   return response.json() as Promise<Document>;
 }
+
+export async function getApplicationDocuments(
+  applicationId: string,
+): Promise<Document[]> {
+  return apiGet<Document[]>(
+    `/api/v1/applications/${applicationId}/documents`,
+  );
+}
