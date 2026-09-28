@@ -350,6 +350,56 @@ def get_application(
 
     return result.data[0]
 
+# ============================================================
+# GET APPLICATION DOCUMENTS
+# ============================================================
+
+@router.get(
+    "/{application_id}/documents",
+    response_model=list[DocumentResponse],
+)
+def get_application_documents(
+    application_id: UUID,
+    supabase: Client = Depends(get_supabase),
+):
+    try:
+        application_result = (
+            supabase.table("applications")
+            .select("id")
+            .eq("id", str(application_id))
+            .limit(1)
+            .execute()
+        )
+    except Exception:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Application lookup failed",
+        )
+
+    if not application_result.data:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Application not found",
+        )
+
+    try:
+        result = (
+            supabase.table("documents")
+            .select(
+                "id, application_id, document_type, ocr_status"
+            )
+            .eq("application_id", str(application_id))
+            .order("document_type")
+            .execute()
+        )
+    except Exception:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Document lookup failed",
+        )
+
+    return result.data or []
+
 
 # ============================================================
 # GET VALIDATIONS

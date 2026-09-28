@@ -9,9 +9,25 @@ interface ValidationScorecardProps {
 }
 
 function passedLabel(passed: boolean | null): string {
-  if (passed === true) return "Passed";
-  if (passed === false) return "Not passed";
+  if (passed === true) {
+    return "Passed";
+  }
+
+  if (passed === false) {
+    return "Not passed";
+  }
+
   return "Not evaluable — required evidence is missing or unreadable.";
+}
+
+function severityLabel(
+  severity: ValidationResult["severity"],
+): string {
+  if (severity === null) {
+    return "Not available";
+  }
+
+  return VALIDATION_SEVERITY_LABELS[severity];
 }
 
 export function ValidationScorecard({
@@ -34,19 +50,35 @@ export function ValidationScorecard({
         >
           <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
             <div>
-              <h3 className="font-medium">{validation.rule_name}</h3>
+              <h3 className="font-medium">
+                {validation.rule_name}
+              </h3>
+
               <p className="mt-1 text-xs text-muted-foreground">
                 Rule ID: {validation.rule_id}
               </p>
             </div>
 
-            <div className="flex flex-wrap gap-2">
-              <Badge variant="secondary">
-                {VALIDATION_SEVERITY_LABELS[validation.severity]}
-              </Badge>
-              <Badge variant="outline">
-                {passedLabel(validation.passed)}
-              </Badge>
+            <div className="flex flex-wrap items-center gap-3">
+              <div className="flex items-center gap-1.5">
+                <span className="text-xs text-muted-foreground">
+                  Severity:
+                </span>
+
+                <Badge variant="secondary">
+                  {severityLabel(validation.severity)}
+                </Badge>
+              </div>
+
+              <div className="flex items-center gap-1.5">
+                <span className="text-xs text-muted-foreground">
+                  Result:
+                </span>
+
+                <Badge variant="outline">
+                  {passedLabel(validation.passed)}
+                </Badge>
+              </div>
             </div>
           </div>
 
@@ -55,8 +87,10 @@ export function ValidationScorecard({
               <dt className="text-xs font-medium text-muted-foreground">
                 Extracted value
               </dt>
+
               <dd className="mt-1 text-sm">
-                {validation.extracted_value ?? "Not available"}
+                {validation.extracted_value ??
+                  "Not available"}
               </dd>
             </div>
 
@@ -64,8 +98,10 @@ export function ValidationScorecard({
               <dt className="text-xs font-medium text-muted-foreground">
                 Expected condition
               </dt>
+
               <dd className="mt-1 text-sm">
-                {validation.expected_condition ?? "Not available"}
+                {validation.expected_condition ??
+                  "Not available"}
               </dd>
             </div>
 
@@ -73,6 +109,7 @@ export function ValidationScorecard({
               <dt className="text-xs font-medium text-muted-foreground">
                 Result
               </dt>
+
               <dd className="mt-1 text-sm">
                 {passedLabel(validation.passed)}
               </dd>
@@ -83,8 +120,10 @@ export function ValidationScorecard({
             <p className="text-xs font-medium text-muted-foreground">
               Reasoning
             </p>
+
             <p className="mt-1 text-sm">
-              {validation.reasoning ?? "No reasoning available."}
+              {validation.reasoning ??
+                "No reasoning available."}
             </p>
           </div>
         </article>

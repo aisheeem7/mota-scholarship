@@ -1,6 +1,9 @@
 import type {
   Application,
   CreateApplicationRequest,
+  Document,
+  DocumentType,
+  ValidationResult,
 } from "./types";
 
 const API_URL =
@@ -18,7 +21,7 @@ async function parseError(response: Response): Promise<string> {
       return body.detail;
     }
   } catch {
-    // Ignore invalid/non-JSON error responses.
+    // Fall through to the generic HTTP error below.
   }
 
   return `API request failed: ${response.status}`;
@@ -56,13 +59,6 @@ export async function apiPost<T>(
   return response.json() as Promise<T>;
 }
 
-/* -------------------------------------------------------------------------- */
-/* Application API                                                            */
-/* -------------------------------------------------------------------------- */
-
-/**
- * POST /api/v1/applications
- */
 export async function createApplication(
   payload: CreateApplicationRequest,
 ): Promise<Application> {
@@ -72,9 +68,6 @@ export async function createApplication(
   );
 }
 
-/**
- * GET /api/v1/applications/{application_id}
- */
 export async function getApplication(
   applicationId: string,
 ): Promise<Application> {
@@ -83,11 +76,58 @@ export async function getApplication(
   );
 }
 
-/**
- * GET /api/v1/admin/applications
- *
- * Uses the shared Application contract. No frontend-only application type.
- */
+export async function processApplication(
+  applicationId: string,
+): Promise<Application> {
+  return apiPost<Application>(
+    `/api/v1/applications/${applicationId}/process`,
+    {},
+  );
+}
+
+export async function getApplicationValidations(
+  applicationId: string,
+): Promise<ValidationResult[]> {
+  return apiGet<ValidationResult[]>(
+    `/api/v1/applications/${applicationId}/validations`,
+  );
+}
+
 export async function getAdminApplications(): Promise<Application[]> {
-  return apiGet<Application[]>("/api/v1/admin/applications");
+  return apiGet<Application[]>(
+    "/api/v1/admin/applications",
+  );
+}
+
+export async function uploadApplicationDocument(
+  applicationId: string,
+  documentType: DocumentType,
+  file: File,
+): Promise<Document> {
+  const formData = new FormData();
+
+  formData.append("document_type", documentType);
+  formData.append("file", file);
+
+  const response = await fetch(
+    `${API_URL}/api/v1/applications/${applicationId}/documents`,
+    {
+      method: "POST",
+      body: formData,
+    },
+  );
+
+  if (!response.ok) {
+    throw new Error(await parseError(response));
+  }
+
+  return response.json() as Promise<Document>;
+}
+
+export async function getApplicationDocuments(
+  applicationId: string,
+): Promise<Document[]> {
+  return apiGet<Document[]>(
+    `/api/v1/applications/${applicationId}/documents`,
+  );
 }

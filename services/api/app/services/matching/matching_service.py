@@ -78,6 +78,46 @@ def _compare_income(
     )
 
 
+def _is_missing_value(
+    field_name: str,
+    value,
+) -> bool:
+    """
+    Determine whether an extracted field should be excluded
+    from cross-document comparison.
+
+    Missing information must never be converted into a conflict.
+    """
+
+    if value is None:
+        return True
+
+    if isinstance(value, str):
+        normalized = value.strip().lower()
+
+        return normalized in {
+            "",
+            "unknown",
+            "unknown student",
+            "n/a",
+            "na",
+            "not available",
+            "not provided",
+            "null",
+        }
+
+    if field_name == "annual_income":
+        try:
+            # The current extraction pipeline uses 0 as the
+            # fallback when annual income is not present.
+            # Treat that fallback as missing for matching.
+            return float(value) <= 0
+        except (TypeError, ValueError):
+            return True
+
+    return False
+
+
 def _compare_field(
     field_name: str,
     left_value,
@@ -115,7 +155,10 @@ def match_documents(
     - category
     - annual_income
 
-    Missing values are skipped.
+    A field is compared only when BOTH documents contain
+    meaningful values for that field.
+
+    Missing information is not treated as a mismatch.
     """
 
     results: list[DocumentMatchResult] = []
@@ -145,7 +188,19 @@ def match_documents(
                 None,
             )
 
-            if left_value is None or right_value is None:
+            # IMPORTANT:
+            # Do not compare a field when either document
+            # does not actually provide that information.
+            if _is_missing_value(
+                field_name,
+                left_value,
+            ):
+                continue
+
+            if _is_missing_value(
+                field_name,
+                right_value,
+            ):
                 continue
 
             (
