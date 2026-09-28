@@ -39,12 +39,12 @@ export function GovernmentHeader() {
         <div className="gov-container flex min-h-24 items-center justify-between gap-6 px-4 py-4 sm:px-6">
           <Link href="/" className="flex min-w-0 items-center gap-3" aria-label="TRISETU home">
             <Image
-              src="/trisetu-logo.png"
+              src="/trisetu-logo.svg"
               alt="TRISETU"
               width={78}
               height={78}
               priority
-              className="h-16 w-16 object-contain sm:h-[72px] sm:w-[72px]"
+              className="h-16 w-[150px] object-contain object-left sm:h-[72px] sm:w-[170px]"
             />
             <div className="min-w-0">
               <p className="text-xl font-bold tracking-tight text-[#183b73] sm:text-2xl">{t("title")}</p>
