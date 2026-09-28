@@ -2,6 +2,7 @@
 
 import { createContext, useContext, useEffect, useMemo, useState } from "react";
 import type { ReactNode } from "react";
+
 import { translate, type Language } from "@/lib/i18n";
 
 const STORAGE_KEY = "trisetu-language";
@@ -20,15 +21,17 @@ export const LANGUAGE_LABELS: Record<Language, string> = {
   bn: "বাংলা",
 };
 
-export function LanguageProvider({ children }: { children: ReactNode }) {
-  const [language, setLanguageState] = useState<Language>("en");
+function readStoredLanguage(): Language {
+  if (typeof window === "undefined") {
+    return "en";
+  }
 
-  useEffect(() => {
-    const stored = window.localStorage.getItem(STORAGE_KEY);
-    if (stored === "en" || stored === "hi" || stored === "bn") {
-      setLanguageState(stored);
-    }
-  }, []);
+  const stored = window.localStorage.getItem(STORAGE_KEY);
+  return stored === "en" || stored === "hi" || stored === "bn" ? stored : "en";
+}
+
+export function LanguageProvider({ children }: { children: ReactNode }) {
+  const [language, setLanguageState] = useState<Language>(readStoredLanguage);
 
   useEffect(() => {
     window.localStorage.setItem(STORAGE_KEY, language);
