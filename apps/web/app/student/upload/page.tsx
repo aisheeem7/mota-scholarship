@@ -35,7 +35,7 @@ import {
   type SchemeId,
   type ValidationResult,
 } from "@/lib/types";
-import { documentTypeLabel, schemeLabel, statusLabel } from "@/lib/i18n";
+import { documentTypeLabel, ocrStatusLabel, schemeLabel, statusLabel } from "@/lib/i18n";
 import { useLanguage } from "@/components/layout/language-provider";
 
 import { ValidationScorecard } from "@/components/admin/validation-scorecard";
@@ -523,8 +523,8 @@ export default function UploadPage() {
                         }`}
                       >
                         {selectedFile
-                          ? "Change file"
-                          : "Choose file"}
+                          ? t("changeFile")
+                          : t("chooseFile")}
                       </label>
 
                       <input
@@ -565,8 +565,7 @@ export default function UploadPage() {
                 </p>
 
                 <p className="mt-1 text-xs text-muted-foreground">
-                  Missing required documents will be
-                  identified during verification.
+                  {t("missingDocuments")}
                 </p>
               </div>
             )}
@@ -591,8 +590,7 @@ export default function UploadPage() {
                   <UploadCloud className="h-4 w-4" />
 
                   <AlertDescription>
-                    Uploading documents. Please
-                    keep this page open.
+                    {t("uploading")}
                   </AlertDescription>
                 </Alert>
 
@@ -623,9 +621,7 @@ export default function UploadPage() {
                     {t("verificationCompleted")}:{" "}
                     <strong>
                       {
-                        APPLICATION_STATUS_LABELS[
-                          application.status
-                        ]
+                        statusLabel(language, application.status)
                       }
                     </strong>
                   </AlertDescription>
@@ -649,7 +645,7 @@ export default function UploadPage() {
           <Card>
             <CardHeader>
               <CardTitle>
-                Uploaded documents
+                {t("uploadedDocuments")}
               </CardTitle>
             </CardHeader>
 
@@ -663,12 +659,12 @@ export default function UploadPage() {
                     >
                       <div>
                         <p className="text-sm font-medium">
-                          {document.document_type}
+                          {documentTypeLabel(language, document.document_type)}
                         </p>
 
                         <p className="text-xs text-muted-foreground">
-                          OCR status:{" "}
-                          {document.ocr_status}
+                          {t("ocrStatus")}:{" "}
+                          {ocrStatusLabel(language, document.ocr_status)}
                         </p>
                       </div>
 
@@ -705,16 +701,13 @@ export default function UploadPage() {
                 </Badge>
 
                 <Badge variant="secondary">
-                  Risk score:{" "}
-                  {application.risk_score ??
-                    "Not available"}
+                  {t("riskScore")}:{" "}
+                  {application.risk_score ?? t("notAvailable")}
                 </Badge>
               </div>
 
               <div>
-                <p className="text-sm font-medium">
-                  Application ID
-                </p>
+                <p className="text-sm font-medium">{t("applicationId")}</p>
 
                 <p className="mt-1 break-all font-mono text-xs text-muted-foreground">
                   {application.id}
@@ -724,7 +717,7 @@ export default function UploadPage() {
               {validations.length > 0 && (
                 <div>
                   <h3 className="mb-3 font-medium">
-                    Validation scorecard
+                    {t("validationScorecard")}
                   </h3>
 
                   <ValidationScorecard
