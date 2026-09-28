@@ -35,8 +35,7 @@
   --color-secondary: var(--secondary);
   --color-primary-foreground: var(--primary-foreground);
   --color-primary: var(--primary);
-  --color-popover-foreground: var(--popover-foreground);
-  --color-popover: var(--popover);
+  --color-secondary: var(--secondary);
   --color-card-foreground: var(--card-foreground);
   --color-card: var(--card);
   --radius-sm: calc(var(--radius) * 0.6);
@@ -49,82 +48,184 @@
 }
 
 :root {
-  --background: oklch(1 0 0);
-  --foreground: oklch(0.145 0 0);
+  --background: oklch(0.98 0.006 240);
+  --foreground: oklch(0.20 0.025 245);
   --card: oklch(1 0 0);
-  --card-foreground: oklch(0.145 0 0);
+  --card-foreground: oklch(0.20 0.025 245);
   --popover: oklch(1 0 0);
-  --popover-foreground: oklch(0.145 0 0);
-  --primary: oklch(0.205 0 0);
+  --popover-foreground: oklch(0.20 0.025 245);
+  --primary: oklch(0.38 0.09 255);
   --primary-foreground: oklch(0.985 0 0);
-  --secondary: oklch(0.97 0 0);
-  --secondary-foreground: oklch(0.205 0 0);
-  --muted: oklch(0.97 0 0);
-  --muted-foreground: oklch(0.556 0 0);
-  --accent: oklch(0.97 0 0);
-  --accent-foreground: oklch(0.205 0 0);
-  --destructive: oklch(0.577 0.245 27.325);
-  --border: oklch(0.922 0 0);
-  --input: oklch(0.922 0 0);
-  --ring: oklch(0.708 0 0);
-  --chart-1: oklch(0.87 0 0);
-  --chart-2: oklch(0.556 0 0);
-  --chart-3: oklch(0.439 0 0);
-  --chart-4: oklch(0.371 0 0);
-  --chart-5: oklch(0.269 0 0);
-  --radius: 0.625rem;
-  --sidebar: oklch(0.985 0 0);
-  --sidebar-foreground: oklch(0.145 0 0);
-  --sidebar-primary: oklch(0.205 0 0);
+  --secondary: oklch(0.95 0.01 240);
+  --secondary-foreground: oklch(0.27 0.035 245);
+  --muted: oklch(0.95 0.01 240);
+  --muted-foreground: oklch(0.50 0.025 245);
+  --accent: oklch(0.94 0.025 220);
+  --accent-foreground: oklch(0.28 0.045 245);
+  --destructive: oklch(0.52 0.20 25);
+  --border: oklch(0.88 0.012 240);
+  --input: oklch(0.88 0.012 240);
+  --ring: oklch(0.52 0.09 255);
+  --chart-1: oklch(0.55 0.13 250);
+  --chart-2: oklch(0.58 0.12 150);
+  --chart-3: oklch(0.70 0.12 80);
+  --chart-4: oklch(0.60 0.16 35);
+  --chart-5: oklch(0.45 0.08 300);
+  --radius: 0.4rem;
+  --sidebar: oklch(0.98 0.006 240);
+  --sidebar-foreground: oklch(0.20 0.025 245);
+  --sidebar-primary: oklch(0.38 0.09 255);
   --sidebar-primary-foreground: oklch(0.985 0 0);
-  --sidebar-accent: oklch(0.97 0 0);
-  --sidebar-accent-foreground: oklch(0.205 0 0);
-  --sidebar-border: oklch(0.922 0 0);
-  --sidebar-ring: oklch(0.708 0 0);
+  --sidebar-accent: oklch(0.94 0.025 220);
+  --sidebar-accent-foreground: oklch(0.28 0.045 245);
+  --sidebar-border: oklch(0.88 0.012 240);
+  --sidebar-ring: oklch(0.52 0.09 255);
 }
 
 .dark {
-  --background: oklch(0.145 0 0);
-  --foreground: oklch(0.985 0 0);
-  --card: oklch(0.205 0 0);
-  --card-foreground: oklch(0.985 0 0);
-  --popover: oklch(0.205 0 0);
-  --popover-foreground: oklch(0.985 0 0);
-  --primary: oklch(0.922 0 0);
-  --primary-foreground: oklch(0.205 0 0);
-  --secondary: oklch(0.269 0 0);
-  --secondary-foreground: oklch(0.985 0 0);
-  --muted: oklch(0.269 0 0);
-  --muted-foreground: oklch(0.708 0 0);
-  --accent: oklch(0.269 0 0);
-  --accent-foreground: oklch(0.985 0 0);
-  --destructive: oklch(0.704 0.191 22.216);
-  --border: oklch(1 0 0 / 10%);
+  --background: oklch(0.16 0.02 245);
+  --foreground: oklch(0.98 0 0);
+  --card: oklch(0.20 0.025 245);
+  --card-foreground: oklch(0.98 0 0);
+  --popover: oklch(0.20 0.025 245);
+  --popover-foreground: oklch(0.98 0 0);
+  --primary: oklch(0.72 0.08 230);
+  --primary-foreground: oklch(0.18 0.03 245);
+  --secondary: oklch(0.25 0.03 245);
+  --secondary-foreground: oklch(0.98 0 0);
+  --muted: oklch(0.25 0.03 245);
+  --muted-foreground: oklch(0.72 0.025 245);
+  --accent: oklch(0.27 0.035 245);
+  --accent-foreground: oklch(0.98 0 0);
+  --destructive: oklch(0.68 0.16 25);
+  --border: oklch(1 0 0 / 12%);
   --input: oklch(1 0 0 / 15%);
-  --ring: oklch(0.556 0 0);
-  --chart-1: oklch(0.87 0 0);
-  --chart-2: oklch(0.556 0 0);
-  --chart-3: oklch(0.439 0 0);
-  --chart-4: oklch(0.371 0 0);
-  --chart-5: oklch(0.269 0 0);
-  --sidebar: oklch(0.205 0 0);
-  --sidebar-foreground: oklch(0.985 0 0);
-  --sidebar-primary: oklch(0.488 0.243 264.376);
-  --sidebar-primary-foreground: oklch(0.985 0 0);
-  --sidebar-accent: oklch(0.269 0 0);
-  --sidebar-accent-foreground: oklch(0.985 0 0);
-  --sidebar-border: oklch(1 0 0 / 10%);
-  --sidebar-ring: oklch(0.556 0 0);
+  --ring: oklch(0.70 0.08 230);
+  --chart-1: oklch(0.70 0.10 230);
+  --chart-2: oklch(0.70 0.10 150);
+  --chart-3: oklch(0.75 0.10 80);
+  --chart-4: oklch(0.72 0.12 35);
+  --chart-5: oklch(0.70 0.08 300);
+  --sidebar: oklch(0.20 0.025 245);
+  --sidebar-foreground: oklch(0.98 0 0);
+  --sidebar-primary: oklch(0.72 0.08 230);
+  --sidebar-primary-foreground: oklch(0.18 0.03 245);
+  --sidebar-accent: oklch(0.27 0.035 245);
+  --sidebar-accent-foreground: oklch(0.98 0 0);
+  --sidebar-border: oklch(1 0 0 / 12%);
+  --sidebar-ring: oklch(0.70 0.08 230);
 }
 
 @layer base {
   * {
     @apply border-border outline-ring/50;
   }
+
   body {
     @apply bg-background text-foreground;
   }
+
   html {
     @apply font-sans;
+  }
+}
+
+@layer components {
+  .gov-container {
+    width: 100%;
+    max-width: 1280px;
+    margin-inline: auto;
+  }
+
+  .skip-link {
+    position: fixed;
+    left: 1rem;
+    top: 0.75rem;
+    z-index: 100;
+    transform: translateY(-180%);
+    border-radius: 0.25rem;
+    background: #183b73;
+    color: white;
+    padding: 0.65rem 0.9rem;
+    font-size: 0.875rem;
+    font-weight: 600;
+    box-shadow: 0 4px 16px rgb(0 0 0 / 18%);
+  }
+
+  .skip-link:focus {
+    transform: translateY(0);
+  }
+
+  .gov-topbar {
+    background: #f4f6f8;
+    border-bottom: 1px solid #d9dee5;
+    color: #465362;
+  }
+
+  .gov-language-button {
+    border: 1px solid transparent;
+    border-radius: 0.2rem;
+    padding: 0.2rem 0.5rem;
+    color: #344054;
+    transition: background-color 120ms ease, border-color 120ms ease;
+  }
+
+  .gov-language-button:hover,
+  .gov-language-active {
+    border-color: #b8c1cc;
+    background: white;
+    color: #183b73;
+  }
+
+  .gov-tricolor {
+    height: 4px;
+    background: linear-gradient(
+      to right,
+      #e87518 0 33.33%,
+      #ffffff 33.33% 66.66%,
+      #2d8a57 66.66% 100%
+    );
+    border-bottom: 1px solid #d8d8d8;
+  }
+
+  .gov-masthead {
+    background: white;
+    border-bottom: 1px solid #d9dee5;
+  }
+
+  .gov-nav {
+    background: #183b73;
+    color: white;
+    box-shadow: 0 2px 8px rgb(24 59 115 / 12%);
+  }
+
+  .gov-nav-link {
+    display: inline-flex;
+    align-items: center;
+    min-height: 2.75rem;
+    border-bottom: 3px solid transparent;
+    padding: 0.5rem 0.8rem;
+    color: #f7f9fc;
+    font-size: 0.875rem;
+    font-weight: 600;
+    white-space: nowrap;
+  }
+
+  .gov-nav-link:hover,
+  .gov-nav-active {
+    border-bottom-color: #f39a36;
+    background: rgb(255 255 255 / 8%);
+  }
+
+  .gov-footer {
+    margin-top: auto;
+    border-top: 1px solid #d9dee5;
+    background: white;
+  }
+
+  .gov-masthead + .gov-nav {
+    position: sticky;
+    top: 0;
+    z-index: 40;
   }
 }
