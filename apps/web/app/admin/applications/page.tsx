@@ -13,10 +13,8 @@ import {
 } from "@/components/ui/card";
 import { getAdmin{t("applications")} } from "@/lib/api";
 import { useLanguage } from "@/components/layout/language-provider";
-import { schemeLabel, statusLabel } from "@/lib/i18n";
+import { schemeLabel, statusLabel, type TranslationKey } from "@/lib/i18n";
 import {
-  APPLICATION_STATUS_LABELS,
-  SCHEME_LABELS,
   type Application,
 } from "@/lib/types";
 
@@ -27,7 +25,7 @@ function ApplicationRows({
 }: {
   applications: Application[];
   language: "en" | "hi" | "bn";
-  t: (key: any) => string;
+  t: (key: TranslationKey) => string;
 }) {
   return (
     <tbody>
