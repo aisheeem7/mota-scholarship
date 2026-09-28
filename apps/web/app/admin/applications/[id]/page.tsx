@@ -65,9 +65,7 @@ export default function ApplicationDetailsPage({
   const [loading, setLoading] = useState(true);
   const [reviewing, setReviewing] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [reviewReason, setReviewReason] = useState(
-    "Reviewed by administrator based on the submitted evidence.",
-  );
+  const [reviewReason, setReviewReason] = useState(t("reviewReasonDefault"));
 
   useEffect(() => {
     let cancelled = false;
@@ -134,8 +132,7 @@ export default function ApplicationDetailsPage({
       const updated = await reviewApplication(
         applicationId,
         decision,
-        reviewReason.trim() ||
-          "Reviewed by administrator based on submitted evidence.",
+        reviewReason.trim() || t("reviewReasonDefault"),
       );
 
       setApplication(updated);
