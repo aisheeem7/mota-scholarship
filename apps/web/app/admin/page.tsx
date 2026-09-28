@@ -3,10 +3,11 @@ import { ArrowRight } from "lucide-react";
 
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
+import { useLanguage } from "@/components/layout/language-provider";
 
 const statistics = [
   {
-    label: "Total applications",
+    label: "{t("totalApplications")}",
     value: "1,248",
   },
   {
@@ -22,27 +23,29 @@ const statistics = [
     value: "142",
   },
   {
-    label: "Flagged for review",
+    label: "{t("flaggedForReview")}",
     value: "66",
   },
 ];
 
 export default function AdminDashboard() {
+  const { t } = useLanguage();
+
   return (
     <main className="min-h-screen bg-muted/30">
       <div className="mx-auto max-w-7xl px-6 py-8">
 
         <header className="mb-8">
           <p className="text-sm font-medium text-muted-foreground">
-            MoTA Scholarship Administration
+            {t("ministry")}
           </p>
 
           <h1 className="mt-2 text-3xl font-semibold">
-            Application dashboard
+            {t("applicationDashboard")}
           </h1>
 
           <p className="mt-2 text-muted-foreground">
-            Monitor applications, verification and review queues.
+            {t("dashboardDescription")}
           </p>
         </header>
 
@@ -68,17 +71,17 @@ export default function AdminDashboard() {
 
         <Card className="mt-6">
           <CardHeader>
-            <CardTitle>Application review</CardTitle>
+            <CardTitle>{t("applicationReview")}</CardTitle>
           </CardHeader>
 
           <CardContent>
             <p className="text-sm text-muted-foreground">
-              Review applications and inspect document-level AI validation.
+              {t("reviewDescription")}
             </p>
 
             <Link href="/admin/applications">
               <Button className="mt-4">
-                View applications
+                {t("viewApplications")}
                 <ArrowRight />
               </Button>
             </Link>
