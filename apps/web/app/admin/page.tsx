@@ -5,31 +5,17 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { useLanguage } from "@/components/layout/language-provider";
 
-const statistics = [
-  {
-    label: "{t("totalApplications")}",
-    value: "1,248",
-  },
-  {
-    label: "Processing",
-    value: "326",
-  },
-  {
-    label: "Approved",
-    value: "714",
-  },
-  {
-    label: "Deficient",
-    value: "142",
-  },
-  {
-    label: "{t("flaggedForReview")}",
-    value: "66",
-  },
-];
+
 
 export default function AdminDashboard() {
   const { t } = useLanguage();
+  const statistics = [
+    { label: t("totalApplications"), value: "1,248" },
+    { label: t("processing"), value: "326" },
+    { label: t("approved"), value: "714" },
+    { label: t("deficient"), value: "142" },
+    { label: t("flaggedForReview"), value: "66" },
+  ];
 
   return (
     <main className="min-h-screen bg-muted/30">
