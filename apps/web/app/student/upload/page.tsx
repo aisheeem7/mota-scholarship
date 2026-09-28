@@ -499,7 +499,7 @@ export default function UploadPage() {
                     >
                       <div className="min-w-0">
                         <p className="text-sm font-medium">
-                          {documentType.label}
+                          {documentTypeLabel(language, documentType.value)}
                         </p>
 
                         <p className="mt-1 truncate text-xs text-muted-foreground">
@@ -577,7 +577,7 @@ export default function UploadPage() {
               }
             >
               {status === "UPLOADING"
-                ? "Uploading..."
+                ? t("uploading")
                 : t("uploadVerify")}
             </Button>
 
@@ -676,7 +676,7 @@ export default function UploadPage() {
           <Card>
             <CardHeader>
               <CardTitle>
-                Verification result
+                {t("result")}
               </CardTitle>
             </CardHeader>
 
@@ -688,11 +688,7 @@ export default function UploadPage() {
                     application.status,
                   )}
                 >
-                  {
-                    APPLICATION_STATUS_LABELS[
-                      application.status
-                    ]
-                  }
+                  {statusLabel(language, application.status)}
                 </Badge>
 
                 <Badge variant="secondary">
