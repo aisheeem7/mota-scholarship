@@ -1,0 +1,17 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 640 300" role="img" aria-labelledby="title desc">
+  <title id="title">TRISETU</title>
+  <desc id="desc">TRISETU logo with an orange bridge symbol, Ashoka-inspired wheel and blue wordmark.</desc>
+  <path d="M65 88c95-22 204-22 310 0" fill="none" stroke="#f6cdbf" stroke-width="26" stroke-linecap="round" opacity=".7"/>
+  <path d="M112 244V93h126v151" fill="none" stroke="#ff7118" stroke-width="22" stroke-linejoin="round"/>
+  <path d="M112 94h126" fill="none" stroke="#ff7118" stroke-width="22"/>
+  <path d="M136 66c10-35 53-51 85-29 23 16 34 37 38 57" fill="none" stroke="#ff7118" stroke-width="22" stroke-linecap="round"/>
+  <path d="M145 145c37-29 78-21 111 13l-83 57" fill="none" stroke="#ff7118" stroke-width="20" stroke-linecap="round"/>
+  <circle cx="286" cy="154" r="47" fill="#fff" stroke="#b9b8d7" stroke-width="5"/>
+  <circle cx="286" cy="154" r="7" fill="#b9b8d7"/>
+  <g stroke="#b9b8d7" stroke-width="2" opacity=".9">
+    <path d="M286 110v88M242 154h88M255 123l62 62M317 123l-62 62"/>
+    <path d="M269 111l34 86M303 111l-34 86M247 137l78 34M325 137l-78 34"/>
+  </g>
+  <text x="318" y="218" font-family="Arial, Helvetica, sans-serif" font-size="118" font-weight="700" letter-spacing="-7" fill="#183b73">SETU</text>
+  <path d="M105 262c95 17 260 19 405 0" fill="none" stroke="#cfe9dc" stroke-width="24" stroke-linecap="round" opacity=".9"/>
+</svg>
