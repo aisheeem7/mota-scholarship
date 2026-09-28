@@ -13,12 +13,39 @@ from app.schemas.application import (
     ApplicationResponse,
     ApplicationStatus,
 )
+
 from app.services.workflow.workflow_service import (
     transition_application,
 )
 
 
 router = APIRouter()
+
+
+@router.get(
+    "/applications",
+    response_model=list[ApplicationResponse],
+)
+def list_applications(
+    supabase: Client = Depends(get_supabase),
+):
+    try:
+        result = (
+            supabase.table("applications")
+            .select(
+                "id, student_id, scheme_id, status, "
+                "risk_score, created_at, updated_at"
+            )
+            .order("created_at", desc=True)
+            .execute()
+        )
+    except Exception:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Application lookup failed",
+        )
+
+    return result.data or []
 
 
 @router.post(
@@ -31,10 +58,6 @@ def review_application(
     payload: AdminReviewRequest,
     supabase: Client = Depends(get_supabase),
 ):
-    # --------------------------------------------------------
-    # Verify application exists
-    # --------------------------------------------------------
-
     try:
         application_result = (
             supabase.table("applications")
@@ -64,10 +87,6 @@ def review_application(
         application["status"]
     )
 
-    # --------------------------------------------------------
-    # Only flagged applications enter admin review
-    # --------------------------------------------------------
-
     try:
         transition_application(
             application_id=application_id,
@@ -82,10 +101,6 @@ def review_application(
             detail=str(exc),
         )
 
-    # --------------------------------------------------------
-    # Map admin decision to final application status
-    # --------------------------------------------------------
-
     decision_to_status = {
         AdminReviewDecision.APPROVE: ApplicationStatus.APPROVED,
         AdminReviewDecision.REJECT: ApplicationStatus.REJECTED,
@@ -95,10 +110,6 @@ def review_application(
     }
 
     target_status = decision_to_status[payload.decision]
-
-    # --------------------------------------------------------
-    # ADMIN_REVIEW -> final decision
-    # --------------------------------------------------------
 
     try:
         transition_application(
@@ -113,10 +124,6 @@ def review_application(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail=str(exc),
         )
-
-    # --------------------------------------------------------
-    # Update timestamp
-    # --------------------------------------------------------
 
     now = datetime.now(timezone.utc)
 
@@ -136,10 +143,6 @@ def review_application(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail="Application review could not be completed",
         )
-
-    # --------------------------------------------------------
-    # Return final application
-    # --------------------------------------------------------
 
     if timestamp_result.data:
         return timestamp_result.data[0]

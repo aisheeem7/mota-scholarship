@@ -99,6 +99,22 @@ export async function getAdminApplications(): Promise<Application[]> {
   );
 }
 
+export type AdminReviewDecision =
+  | "APPROVE"
+  | "REJECT"
+  | "REQUEST_RESUBMISSION";
+
+export async function reviewApplication(
+  applicationId: string,
+  decision: AdminReviewDecision,
+  reason: string,
+): Promise<Application> {
+  return apiPost<Application>(
+    `/api/v1/admin/applications/${applicationId}/review`,
+    { decision, reason },
+  );
+}
+
 export async function uploadApplicationDocument(
   applicationId: string,
   documentType: DocumentType,
