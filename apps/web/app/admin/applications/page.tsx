@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -18,7 +18,11 @@ import {
   type Application,
 } from "@/lib/types";
 
-function ApplicationRows({ applications }: { applications: Application[] }) {
+function ApplicationRows({
+  applications,
+}: {
+  applications: Application[];
+}) {
   return (
     <tbody>
       {applications.map((application) => (
@@ -26,8 +30,12 @@ function ApplicationRows({ applications }: { applications: Application[] }) {
           key={application.id}
           className="border-b last:border-0"
         >
-          <td className="px-4 py-4 font-medium">{application.id}</td>
-          <td className="px-4 py-4">{application.student_id}</td>
+          <td className="px-4 py-4 font-medium">
+            {application.id}
+          </td>
+          <td className="px-4 py-4">
+            {application.student_id}
+          </td>
           <td className="px-4 py-4">
             {SCHEME_LABELS[application.scheme_id]}
           </td>
@@ -59,7 +67,43 @@ export default function ApplicationsPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
-  async function loadApplications() {
+  useEffect(() => {
+    let cancelled = false;
+
+    async function loadInitialApplications() {
+      try {
+        const data = await getAdminApplications();
+
+        if (cancelled) {
+          return;
+        }
+
+        setApplications(data);
+      } catch (requestError) {
+        if (cancelled) {
+          return;
+        }
+
+        setError(
+          requestError instanceof Error
+            ? requestError.message
+            : "Could not load applications.",
+        );
+      } finally {
+        if (!cancelled) {
+          setLoading(false);
+        }
+      }
+    }
+
+    void loadInitialApplications();
+
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  async function handleRetry() {
     setLoading(true);
     setError(null);
 
@@ -84,7 +128,9 @@ export default function ApplicationsPage() {
           <p className="text-sm font-medium text-muted-foreground">
             MoTA Scholarship Administration
           </p>
-          <h1 className="mt-2 text-3xl font-semibold">Applications</h1>
+          <h1 className="mt-2 text-3xl font-semibold">
+            Applications
+          </h1>
           <p className="mt-2 text-muted-foreground">
             Review scholarship applications and verification status.
           </p>
@@ -97,25 +143,19 @@ export default function ApplicationsPage() {
 
           <CardContent>
             {loading && (
-              <div className="flex flex-col items-center gap-3 py-8 text-center">
-                <p className="text-sm text-muted-foreground">
-                  Loading applications…
-                </p>
-                <Button
-                  variant="outline"
-                  onClick={() => void loadApplications()}
-                >
-                  Load applications
-                </Button>
+              <div className="py-8 text-center text-sm text-muted-foreground">
+                Loading applications…
               </div>
             )}
 
             {!loading && error && (
               <div className="flex flex-col items-center gap-3 py-8 text-center">
-                <p className="text-sm text-destructive">{error}</p>
+                <p className="text-sm text-destructive">
+                  {error}
+                </p>
                 <Button
                   variant="outline"
-                  onClick={() => void loadApplications()}
+                  onClick={() => void handleRetry()}
                 >
                   Retry
                 </Button>
