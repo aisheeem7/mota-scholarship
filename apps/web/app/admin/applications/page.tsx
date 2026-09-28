@@ -11,7 +11,9 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
-import { getAdminApplications } from "@/lib/api";
+import { getAdmin{t("applications")} } from "@/lib/api";
+import { useLanguage } from "@/components/layout/language-provider";
+import { schemeLabel, statusLabel } from "@/lib/i18n";
 import {
   APPLICATION_STATUS_LABELS,
   SCHEME_LABELS,
@@ -20,8 +22,12 @@ import {
 
 function ApplicationRows({
   applications,
+  language,
+  t,
 }: {
   applications: Application[];
+  language: "en" | "hi" | "bn";
+  t: (key: any) => string;
 }) {
   return (
     <tbody>
@@ -37,16 +43,16 @@ function ApplicationRows({
             {application.student_id}
           </td>
           <td className="px-4 py-4">
-            {SCHEME_LABELS[application.scheme_id]}
+            {schemeLabel(language, application.scheme_id)}
           </td>
           <td className="px-4 py-4">
             <Badge variant="secondary">
-              {APPLICATION_STATUS_LABELS[application.status]}
+              {statusLabel(language, application.status)}
             </Badge>
           </td>
           <td className="px-4 py-4">
             {application.risk_score === null
-              ? "Not evaluated"
+              ? t("notEvaluated")
               : application.risk_score}
           </td>
           <td className="px-4 py-4">
@@ -63,6 +69,7 @@ function ApplicationRows({
 }
 
 export default function ApplicationsPage() {
+  const { language, t } = useLanguage();
   const [applications, setApplications] = useState<Application[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -87,7 +94,7 @@ export default function ApplicationsPage() {
         setError(
           requestError instanceof Error
             ? requestError.message
-            : "Could not load applications.",
+            : "{t("errorApplications")}",
         );
       } finally {
         if (!cancelled) {
@@ -103,7 +110,7 @@ export default function ApplicationsPage() {
     };
   }, []);
 
-  async function handleRetry() {
+  async function handle{t("retry")}() {
     setLoading(true);
     setError(null);
 
@@ -126,25 +133,25 @@ export default function ApplicationsPage() {
       <div className="mx-auto max-w-7xl px-4 py-8 sm:px-6">
         <header className="mb-8">
           <p className="text-sm font-medium text-muted-foreground">
-            MoTA Scholarship Administration
+            {t("ministry")}
           </p>
           <h1 className="mt-2 text-3xl font-semibold">
             Applications
           </h1>
           <p className="mt-2 text-muted-foreground">
-            Review scholarship applications and verification status.
+            {t("reviewApplicationsDescription")}
           </p>
         </header>
 
         <Card>
           <CardHeader>
-            <CardTitle>Application Queue</CardTitle>
+            <CardTitle>{t("applicationQueue")}</CardTitle>
           </CardHeader>
 
           <CardContent>
             {loading && (
               <div className="py-8 text-center text-sm text-muted-foreground">
-                Loading applications…
+                {t("loadingApplications")}
               </div>
             )}
 
@@ -164,7 +171,7 @@ export default function ApplicationsPage() {
 
             {!loading && !error && applications.length === 0 && (
               <p className="py-8 text-center text-sm text-muted-foreground">
-                No applications found.
+                {t("noApplications")}
               </p>
             )}
 
@@ -173,15 +180,15 @@ export default function ApplicationsPage() {
                 <table className="w-full min-w-[760px] text-left text-sm">
                   <thead>
                     <tr className="border-b">
-                      <th className="px-4 py-3">Application ID</th>
-                      <th className="px-4 py-3">Student ID</th>
-                      <th className="px-4 py-3">Scheme</th>
-                      <th className="px-4 py-3">Status</th>
-                      <th className="px-4 py-3">Risk score</th>
-                      <th className="px-4 py-3">Review</th>
+                      <th className="px-4 py-3">{t("applicationId")}</th>
+                      <th className="px-4 py-3">{t("studentId")}</th>
+                      <th className="px-4 py-3">{t("scheme")}</th>
+                      <th className="px-4 py-3">{t("status")}</th>
+                      <th className="px-4 py-3">{t("riskScore")}</th>
+                      <th className="px-4 py-3">{t("review")}</th>
                     </tr>
                   </thead>
-                  <ApplicationRows applications={applications} />
+                  <ApplicationRows applications={applications} language={language} t={t} />
                 </table>
               </div>
             )}
