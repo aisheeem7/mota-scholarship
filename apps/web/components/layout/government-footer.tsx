@@ -1,3 +1,5 @@
+"use client";
+
 import { useLanguage } from "@/components/layout/language-provider";
 
 export function GovernmentFooter() {
