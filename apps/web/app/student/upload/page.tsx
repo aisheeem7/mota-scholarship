@@ -29,13 +29,14 @@ import {
 } from "@/lib/api";
 
 import {
-  APPLICATION_STATUS_LABELS,
   type Application,
   type Document,
   type DocumentType,
   type SchemeId,
   type ValidationResult,
 } from "@/lib/types";
+import { documentTypeLabel, schemeLabel, statusLabel } from "@/lib/i18n";
+import { useLanguage } from "@/components/layout/language-provider";
 
 import { ValidationScorecard } from "@/components/admin/validation-scorecard";
 
@@ -140,6 +141,8 @@ function statusBadgeClass(
 }
 
 export default function UploadPage() {
+  const { language, t } = useLanguage();
+
   const [status, setStatus] =
     useState<UploadState>("DEFAULT");
 
@@ -203,7 +206,7 @@ export default function UploadPage() {
       file.size > MAX_FILE_SIZE
     ) {
       setErrorMessage(
-        `${file.name} is invalid. Use a non-empty PDF, JPG, JPEG or PNG file up to 10 MB.`,
+        `${file.name} ${t("invalidFile")}`,
       );
 
       setStatus("ERROR");
@@ -224,7 +227,7 @@ export default function UploadPage() {
   async function handleCreateApplication() {
     if (!demoStudentId) {
       setErrorMessage(
-        "Demo Mode is not configured. NEXT_PUBLIC_DEMO_STUDENT_ID is missing.",
+        t("demoIdMissing"),
       );
 
       setStatus("ERROR");
@@ -301,7 +304,7 @@ export default function UploadPage() {
   async function handleUpload() {
     if (!application) {
       setErrorMessage(
-        "Create the application before uploading documents.",
+        t("createBeforeUpload"),
       );
 
       setStatus("ERROR");
@@ -314,7 +317,7 @@ export default function UploadPage() {
 
     if (selectedDocumentCount === 0) {
       setErrorMessage(
-        "Please select at least one document before verification.",
+        t("selectDocument"),
       );
 
       setStatus("ERROR");
@@ -411,7 +414,7 @@ export default function UploadPage() {
         <Card>
           <CardHeader>
             <CardTitle>
-              1. Select scheme
+              {t("selectScheme")}
             </CardTitle>
           </CardHeader>
 
@@ -471,14 +474,14 @@ export default function UploadPage() {
         <Card>
           <CardHeader>
             <CardTitle>
-              2. Upload documents
+              {t("uploadStep")}
             </CardTitle>
           </CardHeader>
 
           <CardContent className="space-y-6">
             <div className="rounded-lg border p-4">
               <p className="font-medium">
-                Upload available documents
+                {t("uploadAvailable")}
               </p>
 
               <p className="mt-1 text-sm text-muted-foreground">
@@ -552,7 +555,7 @@ export default function UploadPage() {
             {Object.values(selectedFiles).some(Boolean) && (
               <div className="rounded-md border bg-muted/30 p-4">
                 <p className="text-sm font-medium">
-                  Documents selected:{" "}
+                  {t("documentsSelected")}:{" "}
                   {
                     Object.values(selectedFiles).filter(
                       Boolean,
@@ -579,7 +582,7 @@ export default function UploadPage() {
             >
               {status === "UPLOADING"
                 ? "Uploading..."
-                : "Upload documents & verify"}
+                : t("uploadVerify")}
             </Button>
 
             {status === "UPLOADING" && (
@@ -617,7 +620,7 @@ export default function UploadPage() {
                   <CheckCircle2 className="h-4 w-4" />
 
                   <AlertDescription>
-                    Verification completed:{" "}
+                    {t("verificationCompleted")}:{" "}
                     <strong>
                       {
                         APPLICATION_STATUS_LABELS[
