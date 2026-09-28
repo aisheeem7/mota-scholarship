@@ -104,7 +104,7 @@ export default function ApplicationDetailsPage({
         setError(
           requestError instanceof Error
             ? requestError.message
-            : "{t("errorApplication")}",
+            : t("errorApplication"),
         );
       } finally {
         if (!cancelled) {
@@ -143,7 +143,7 @@ export default function ApplicationDetailsPage({
       setError(
         requestError instanceof Error
           ? requestError.message
-          : "{t("errorReview")}",
+          : t("errorReview"),
       );
     } finally {
       setReviewing(false);
@@ -258,7 +258,7 @@ export default function ApplicationDetailsPage({
                     <CheckCircle2 className="h-4 w-4" />
                   ) : (
                     <Badge variant="secondary">
-                      {document.ocr_status}
+                      {ocrStatusLabel(language, document.ocr_status)}
                     </Badge>
                   )}
                 </div>
@@ -303,7 +303,7 @@ export default function ApplicationDetailsPage({
                   {reviewing && (
                     <Loader2 className="mr-2 h-4 w-4 animate-spin" />
                   )}
-                  Approve
+                  {t("approve")}
                 </Button>
 
                 <Button
@@ -313,7 +313,7 @@ export default function ApplicationDetailsPage({
                     void handleReview("REQUEST_RESUBMISSION")
                   }
                 >
-                  Request resubmission
+                  {t("requestResubmission")}
                 </Button>
 
                 <Button
@@ -321,7 +321,7 @@ export default function ApplicationDetailsPage({
                   disabled={reviewing}
                   onClick={() => void handleReview("REJECT")}
                 >
-                  Reject
+                  {t("reject")}
                 </Button>
               </div>
             </CardContent>
