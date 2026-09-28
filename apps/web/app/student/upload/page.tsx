@@ -401,12 +401,11 @@ export default function UploadPage() {
     <main className="container mx-auto max-w-4xl px-4 py-8">
       <div className="mb-8">
         <h1 className="text-3xl font-semibold tracking-tight">
-          Upload documents
+          {t("uploadDocuments")}
         </h1>
 
         <p className="mt-2 text-muted-foreground">
-          Demo Mode — create an application, upload
-          documents and run verification.
+          {t("demoMode")} — {t("uploadDocuments")}.
         </p>
       </div>
 
@@ -434,7 +433,7 @@ export default function UploadPage() {
                   key={scheme.value}
                   value={scheme.value}
                 >
-                  {scheme.label}
+                  {schemeLabel(language, scheme.value)}
                 </option>
               ))}
             </select>
@@ -451,7 +450,7 @@ export default function UploadPage() {
                 {status ===
                 "CREATING_APPLICATION"
                   ? "Creating application..."
-                  : "Create application"}
+                  : t("createApplication")}
               </Button>
             )}
 
@@ -460,7 +459,7 @@ export default function UploadPage() {
                 <CheckCircle2 className="h-4 w-4" />
 
                 <AlertDescription>
-                  Application created successfully.
+                  {t("applicationCreated")}
 
                   <span className="mt-1 block break-all font-mono text-xs">
                     {application.id}
@@ -485,9 +484,7 @@ export default function UploadPage() {
               </p>
 
               <p className="mt-1 text-sm text-muted-foreground">
-                Upload the documents you have.
-                Verification will check whether all
-                required documents are present.
+                {t("uploadHelp")}
               </p>
 
               <div className="mt-4 space-y-3">
@@ -620,9 +617,7 @@ export default function UploadPage() {
                   <AlertDescription>
                     {t("verificationCompleted")}:{" "}
                     <strong>
-                      {
-                        statusLabel(language, application.status)
-                      }
+                      {statusLabel(language, application.status)}
                     </strong>
                   </AlertDescription>
                 </Alert>
