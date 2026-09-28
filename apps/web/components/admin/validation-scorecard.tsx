@@ -24,7 +24,7 @@ function passedLabel(passed: boolean | null, t: (key: TranslationKey) => string)
 
 function severityLabel(
   severity: ValidationResult["severity"],
-  t: (key: any) => string,
+  t: (key: TranslationKey) => string,
 ): string {
   if (severity === null) {
     return t("notAvailable");
@@ -106,7 +106,7 @@ export function ValidationScorecard({
 
               <dd className="mt-1 text-sm">
                 {validation.expected_condition ??
-                  "Not available"}
+                  t("notAvailable")}
               </dd>
             </div>
 
