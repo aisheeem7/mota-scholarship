@@ -4,6 +4,8 @@ import { useEffect, useState } from "react";
 import { AlertCircle, CheckCircle2, Loader2 } from "lucide-react";
 
 import { ValidationScorecard } from "@/components/admin/validation-scorecard";
+import { useLanguage } from "@/components/layout/language-provider";
+import { documentTypeLabel, ocrStatusLabel, schemeLabel, statusLabel } from "@/lib/i18n";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -21,8 +23,6 @@ import {
   type AdminReviewDecision,
 } from "@/lib/api";
 import {
-  APPLICATION_STATUS_LABELS,
-  SCHEME_LABELS,
   type Application,
   type Document,
   type ValidationResult,
@@ -55,6 +55,7 @@ export default function ApplicationDetailsPage({
 }: {
   params: Promise<{ id: string }>;
 }) {
+  const { language, t } = useLanguage();
   const [applicationId, setApplicationId] = useState<string | null>(null);
   const [application, setApplication] =
     useState<Application | null>(null);
@@ -103,7 +104,7 @@ export default function ApplicationDetailsPage({
         setError(
           requestError instanceof Error
             ? requestError.message
-            : "Could not load this application.",
+            : "{t("errorApplication")}",
         );
       } finally {
         if (!cancelled) {
@@ -142,7 +143,7 @@ export default function ApplicationDetailsPage({
       setError(
         requestError instanceof Error
           ? requestError.message
-          : "Administrative review failed.",
+          : "{t("errorReview")}",
       );
     } finally {
       setReviewing(false);
@@ -155,7 +156,7 @@ export default function ApplicationDetailsPage({
         <div className="mx-auto max-w-6xl px-6 py-8">
           <Card>
             <CardContent className="py-12 text-center text-sm text-muted-foreground">
-              Loading application review…
+              {t("loadingApplication")}
             </CardContent>
           </Card>
         </div>
@@ -185,7 +186,7 @@ export default function ApplicationDetailsPage({
       <div className="mx-auto max-w-6xl space-y-6 px-6 py-8">
         <header>
           <p className="text-sm font-medium text-muted-foreground">
-            Application Review
+            {t("adminReview")}
           </p>
           <h1 className="mt-2 break-all text-3xl font-semibold">
             {application.id}
@@ -195,10 +196,10 @@ export default function ApplicationDetailsPage({
               variant="outline"
               className={statusClass(application.status)}
             >
-              {APPLICATION_STATUS_LABELS[application.status]}
+              {statusLabel(language, application.status)}
             </Badge>
             <Badge variant="secondary">
-              Risk score: {application.risk_score ?? "Not evaluated"}
+              {t("riskScore")}: {application.risk_score ?? t("notEvaluated")}
             </Badge>
           </div>
         </header>
@@ -212,19 +213,19 @@ export default function ApplicationDetailsPage({
 
         <Card>
           <CardHeader>
-            <CardTitle>Student Information</CardTitle>
+            <CardTitle>{t("studentInformation")}</CardTitle>
           </CardHeader>
           <CardContent className="grid gap-4 sm:grid-cols-2">
             <div>
-              <p className="text-sm text-muted-foreground">Student ID</p>
+              <p className="text-sm text-muted-foreground">{t("studentId")}</p>
               <p className="mt-1 font-medium">
                 {application.student_id}
               </p>
             </div>
             <div>
-              <p className="text-sm text-muted-foreground">Scheme</p>
+              <p className="text-sm text-muted-foreground">{t("scheme")}</p>
               <p className="mt-1 font-medium">
-                {SCHEME_LABELS[application.scheme_id]}
+                {schemeLabel(language, application.scheme_id)}
               </p>
             </div>
           </CardContent>
@@ -232,12 +233,12 @@ export default function ApplicationDetailsPage({
 
         <Card>
           <CardHeader>
-            <CardTitle>Uploaded Documents</CardTitle>
+            <CardTitle>{t("uploadedDocuments")}</CardTitle>
           </CardHeader>
           <CardContent className="space-y-2">
             {documents.length === 0 ? (
               <p className="text-sm text-muted-foreground">
-                No documents uploaded.
+                {t("noDocuments")}
               </p>
             ) : (
               documents.map((document) => (
@@ -247,10 +248,10 @@ export default function ApplicationDetailsPage({
                 >
                   <div>
                     <p className="text-sm font-medium">
-                      {document.document_type}
+                      {documentTypeLabel(language, document.document_type)}
                     </p>
                     <p className="text-xs text-muted-foreground">
-                      OCR status: {document.ocr_status}
+                      {t("ocrStatus")}: {ocrStatusLabel(language, document.ocr_status)}
                     </p>
                   </div>
                   {document.ocr_status === "READABLE" ? (
@@ -268,7 +269,7 @@ export default function ApplicationDetailsPage({
 
         <Card>
           <CardHeader>
-            <CardTitle>Validation Scorecard</CardTitle>
+            <CardTitle>{t("validationScorecard")}</CardTitle>
           </CardHeader>
           <CardContent>
             <ValidationScorecard validations={validations} />
@@ -278,12 +279,11 @@ export default function ApplicationDetailsPage({
         {application.status === "FLAGGED_FOR_REVIEW" && (
           <Card>
             <CardHeader>
-              <CardTitle>Human Review</CardTitle>
+              <CardTitle>{t("humanReview")}</CardTitle>
             </CardHeader>
             <CardContent className="space-y-4">
               <p className="text-sm text-muted-foreground">
-                This application was flagged for administrative review.
-                A mismatch is a review signal, not an automatic fraud decision.
+                {t("flaggedReview")}
               </p>
 
               <textarea
@@ -292,7 +292,7 @@ export default function ApplicationDetailsPage({
                   setReviewReason(event.target.value)
                 }
                 className="min-h-24 w-full rounded-md border bg-background px-3 py-2 text-sm"
-                aria-label="Administrative review reason"
+                aria-label={t("reviewReason")}
               />
 
               <div className="flex flex-wrap gap-3">
