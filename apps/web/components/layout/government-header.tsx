@@ -37,19 +37,22 @@ export function GovernmentHeader() {
 
       <header className="gov-masthead">
         <div className="gov-container flex min-h-24 items-center justify-between gap-6 px-4 py-4 sm:px-6">
-          <Link href="/" className="flex min-w-0 items-center gap-3" aria-label="TRISETU home">
+          <Link
+            href="/"
+            className="flex min-w-0 max-w-full flex-col items-start gap-2"
+            aria-label="TRISETU home"
+          >
             <Image
-              src="/trisetu-logo.svg"
+              src="/trisetu-logo.png"
               alt="TRISETU"
-              width={78}
-              height={78}
+              width={220}
+              height={110}
               priority
-              className="h-16 w-[150px] object-contain object-left sm:h-[72px] sm:w-[170px]"
+              className="h-auto w-[190px] max-w-full object-contain object-left sm:w-[220px]"
             />
-            <div className="min-w-0">
-              <p className="text-xl font-bold tracking-tight text-[#183b73] sm:text-2xl">{t("title")}</p>
-              <p className="mt-0.5 max-w-2xl text-xs leading-5 text-slate-600 sm:text-sm">{t("subtitle")}</p>
-            </div>
+            <p className="max-w-[34rem] break-words text-xs font-medium leading-5 text-slate-600 sm:text-sm">
+              {t("subtitle")}
+            </p>
           </Link>
 
           <div className="hidden text-right sm:block">
