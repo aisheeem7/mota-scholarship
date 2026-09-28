@@ -11,7 +11,7 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
-import { getAdmin{t("applications")} } from "@/lib/api";
+import { getAdminApplications } from "@/lib/api";
 import { useLanguage } from "@/components/layout/language-provider";
 import { schemeLabel, statusLabel, type TranslationKey } from "@/lib/i18n";
 import {
@@ -56,7 +56,7 @@ function ApplicationRows({
           <td className="px-4 py-4">
             <Link href={`/admin/applications/${application.id}`}>
               <Button variant="outline" size="sm">
-                Review
+                {t("review")}
               </Button>
             </Link>
           </td>
@@ -92,7 +92,7 @@ export default function ApplicationsPage() {
         setError(
           requestError instanceof Error
             ? requestError.message
-            : "{t("errorApplications")}",
+            : t("errorApplications"),
         );
       } finally {
         if (!cancelled) {
@@ -108,7 +108,7 @@ export default function ApplicationsPage() {
     };
   }, []);
 
-  async function handle{t("retry")}() {
+  async function handleRetry() {
     setLoading(true);
     setError(null);
 
@@ -119,7 +119,7 @@ export default function ApplicationsPage() {
       setError(
         requestError instanceof Error
           ? requestError.message
-          : "Could not load applications.",
+          : t("errorApplications"),
       );
     } finally {
       setLoading(false);
@@ -134,7 +134,7 @@ export default function ApplicationsPage() {
             {t("ministry")}
           </p>
           <h1 className="mt-2 text-3xl font-semibold">
-            Applications
+            {t("applications")}
           </h1>
           <p className="mt-2 text-muted-foreground">
             {t("reviewApplicationsDescription")}
@@ -162,7 +162,7 @@ export default function ApplicationsPage() {
                   variant="outline"
                   onClick={() => void handleRetry()}
                 >
-                  Retry
+                  {t("retry")}
                 </Button>
               </div>
             )}
