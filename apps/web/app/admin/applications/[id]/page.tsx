@@ -116,7 +116,7 @@ export default function ApplicationDetailsPage({
     return () => {
       cancelled = true;
     };
-  }, [params]);
+  }, [params, t]);
 
   async function handleReview(
     decision: AdminReviewDecision,
