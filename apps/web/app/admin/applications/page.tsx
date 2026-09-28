@@ -74,7 +74,6 @@ export default function ApplicationsPage() {
 
   useEffect(() => {
     let cancelled = false;
-
     async function loadInitialApplications() {
       try {
         const data = await getAdminApplications();
@@ -106,7 +105,7 @@ export default function ApplicationsPage() {
     return () => {
       cancelled = true;
     };
-  }, []);
+  }, [t]);
 
   async function handleRetry() {
     setLoading(true);
