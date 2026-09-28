@@ -6,6 +6,7 @@ from app.schemas.application import (
     ApplicationStatus,
     OCRStatus,
 )
+from app.schemas.extraction import DocumentExtraction
 from app.services.ai.extraction_provider import (
     ExtractionError,
 )
@@ -36,6 +37,11 @@ from app.services.workflow.workflow_service import (
 
 
 STORAGE_BUCKET = "application-documents"
+
+
+# ============================================================
+# VALIDATION PERSISTENCE
+# ============================================================
 
 
 def _persist_validation_results(
@@ -70,31 +76,247 @@ def _persist_validation_results(
         ).execute()
 
 
+# ============================================================
+# MATCHING PERSISTENCE
+# ============================================================
+
+
 def _persist_match_results(
     application_id: UUID,
     match_results,
     supabase: Client,
 ) -> None:
     """
-    Persist cross-document matching results.
+    Persist cross-document matching results in a single batch insert.
+
+    Batch insertion reduces repeated PostgREST connections and keeps
+    the matching persistence operation atomic at the application level.
     """
 
-    for result in match_results:
-        match_data = {
-            "application_id": str(application_id),
-            "left_document_id": result.left_document_id,
-            "right_document_id": result.right_document_id,
-            "field_name": result.field_name,
-            "similarity": result.similarity,
-            "match_status": result.match_status.value,
-            "reasoning": result.reasoning,
-        }
+    if not match_results:
+        return
 
-        supabase.table(
-            "student_document_matches"
-        ).insert(
-            match_data
-        ).execute()
+    match_rows = []
+
+    for result in match_results:
+        match_rows.append(
+            {
+                "application_id": str(application_id),
+                "left_document_id": result.left_document_id,
+                "right_document_id": result.right_document_id,
+                "field_name": result.field_name,
+                "similarity": result.similarity,
+                "match_status": result.match_status.value,
+                "reasoning": result.reasoning,
+            }
+        )
+
+    supabase.table(
+        "student_document_matches"
+    ).insert(
+        match_rows
+    ).execute()
+
+
+# ============================================================
+# APPLICATION-LEVEL EVIDENCE AGGREGATION
+# ============================================================
+
+
+def _build_application_extraction(
+    extracted_documents: list[dict],
+) -> DocumentExtraction:
+    """
+    Build one consolidated evidence object for application-level
+    deterministic eligibility validation.
+
+    Individual document extractions remain available for:
+    - auditability
+    - OCR/extraction display
+    - cross-document matching
+    - AI reasoning
+
+    This consolidated object is used only by the deterministic
+    scheme validation engine.
+
+    Eligibility evidence is sourced explicitly from the document
+    type that is authoritative for that field.
+
+    Current prototype source mapping:
+
+        student_name
+            IDENTITY_DOCUMENT
+            ACADEMIC_RECORD
+            INCOME_CERTIFICATE
+            CASTE_CERTIFICATE
+
+        category
+            CASTE_CERTIFICATE
+            IDENTITY_DOCUMENT
+
+        annual_income
+            INCOME_CERTIFICATE
+
+        academic_level
+            ACADEMIC_RECORD
+
+        institution
+            ACADEMIC_RECORD
+
+        course
+            ACADEMIC_RECORD
+
+        document_number
+            IDENTITY_DOCUMENT
+            CASTE_CERTIFICATE
+            INCOME_CERTIFICATE
+            ACADEMIC_RECORD
+    """
+
+    # --------------------------------------------------------
+    # Explicit evidence-source priority
+    # --------------------------------------------------------
+
+    field_priority = {
+        "student_name": [
+            "IDENTITY_DOCUMENT",
+            "ACADEMIC_RECORD",
+            "INCOME_CERTIFICATE",
+            "CASTE_CERTIFICATE",
+        ],
+        "category": [
+            "CASTE_CERTIFICATE",
+            "IDENTITY_DOCUMENT",
+        ],
+        "annual_income": [
+            "INCOME_CERTIFICATE",
+        ],
+        "academic_level": [
+            "ACADEMIC_RECORD",
+        ],
+        "institution": [
+            "ACADEMIC_RECORD",
+        ],
+        "course": [
+            "ACADEMIC_RECORD",
+        ],
+        "document_number": [
+            "IDENTITY_DOCUMENT",
+            "CASTE_CERTIFICATE",
+            "INCOME_CERTIFICATE",
+            "ACADEMIC_RECORD",
+        ],
+    }
+
+    # --------------------------------------------------------
+    # Index successful extractions by document type
+    # --------------------------------------------------------
+
+    by_type: dict[str, DocumentExtraction] = {}
+
+    for item in extracted_documents:
+        document_type = item["document_type"]
+        extraction = item["extraction"]
+
+        by_type[document_type] = extraction
+
+    # --------------------------------------------------------
+    # Resolve a field only from its configured source documents
+    # --------------------------------------------------------
+
+    def first_value(field_name: str):
+        for document_type in field_priority[field_name]:
+            extraction = by_type.get(document_type)
+
+            if extraction is None:
+                continue
+
+            value = getattr(
+                extraction,
+                field_name,
+                None,
+            )
+
+            if value is None:
+                continue
+
+            if isinstance(value, str) and not value.strip():
+                continue
+
+            return value
+
+        return None
+
+    # --------------------------------------------------------
+    # Preserve evidence with document source
+    # --------------------------------------------------------
+
+    evidence: list[str] = []
+
+    for item in extracted_documents:
+        document_type = item["document_type"]
+        extraction = item["extraction"]
+
+        for evidence_item in extraction.evidence:
+            evidence.append(
+                f"{document_type}: {evidence_item}"
+            )
+
+    # --------------------------------------------------------
+    # Consolidated confidence
+    # --------------------------------------------------------
+
+    confidence_values = [
+        item["extraction"].confidence
+        for item in extracted_documents
+    ]
+
+    confidence = (
+        sum(confidence_values) / len(confidence_values)
+        if confidence_values
+        else 0.0
+    )
+
+    # --------------------------------------------------------
+    # Consolidated reasoning
+    # --------------------------------------------------------
+
+    reasoning_parts: list[str] = []
+
+    for item in extracted_documents:
+        document_type = item["document_type"]
+        extraction = item["extraction"]
+
+        if extraction.reasoning:
+            reasoning_parts.append(
+                f"{document_type}: {extraction.reasoning}"
+            )
+
+    # --------------------------------------------------------
+    # Return normalized application evidence
+    # --------------------------------------------------------
+
+    return DocumentExtraction(
+        student_name=first_value("student_name"),
+        category=first_value("category"),
+        annual_income=first_value("annual_income"),
+        academic_level=first_value("academic_level"),
+        institution=first_value("institution"),
+        course=first_value("course"),
+        document_number=first_value("document_number"),
+        confidence=confidence,
+        reasoning=(
+            " ".join(reasoning_parts)
+            if reasoning_parts
+            else None
+        ),
+        evidence=evidence,
+    )
+
+
+# ============================================================
+# MAIN APPLICATION PROCESSING PIPELINE
+# ============================================================
 
 
 def process_application_documents(
@@ -115,8 +337,8 @@ def process_application_documents(
     7. Run LlamaCloud OCR.
     8. Persist OCR result.
     9. Run configured extraction provider.
-    10. Run deterministic eligibility validation.
-    11. Persist validation results.
+    10. Aggregate application-level evidence.
+    11. Run deterministic eligibility validation once.
     12. Cross-match extracted values between documents.
     13. Persist matching results.
     14. Calculate prototype risk score.
@@ -288,6 +510,13 @@ def process_application_documents(
 
     any_unreadable = False
     validation_failed = False
+
+    # Each successfully extracted document is stored exactly once.
+    #
+    # This collection is used for:
+    # - application-level evidence aggregation
+    # - cross-document matching
+    # - auditability
     extracted_documents = []
 
     # ---------------------------------------------------------
@@ -299,109 +528,35 @@ def process_application_documents(
         storage_path = document["storage_path"]
         document_type = document["document_type"]
 
-        try:
-            # -------------------------------------------------
-            # 8a. Download document
-            # -------------------------------------------------
+        # -----------------------------------------------------
+        # 8a. Download document
+        # 8b. Get filename
+        # 8c. Run OCR
+        # -----------------------------------------------------
 
+        try:
             file_bytes = (
                 supabase.storage
                 .from_(STORAGE_BUCKET)
                 .download(storage_path)
             )
 
-            # -------------------------------------------------
-            # 8b. Get filename
-            # -------------------------------------------------
-
             filename = storage_path.rsplit(
                 "/",
                 1,
             )[-1]
-
-            # -------------------------------------------------
-            # 8c. Run OCR
-            # -------------------------------------------------
 
             ocr_text = run_ocr(
                 file_bytes=file_bytes,
                 filename=filename,
             )
 
-            # -------------------------------------------------
-            # 8d. Persist OCR result
-            # -------------------------------------------------
-
-            (
-                supabase.table("documents")
-                .update(
-                    {
-                        "ocr_status": OCRStatus.READABLE.value,
-                        "ocr_text": ocr_text,
-                    }
-                )
-                .eq(
-                    "id",
-                    document_id,
-                )
-                .execute()
-            )
-
-            # -------------------------------------------------
-            # 8e. Structured extraction
-            # -------------------------------------------------
-
-            extraction = (
-                extraction_service.extract_document(
-                    text=ocr_text,
-                    document_type=document_type,
-                )
-            )
-
-            # -------------------------------------------------
-            # 8f. Deterministic validation
-            # -------------------------------------------------
-
-            validation_results = validate_extraction(
-                extraction=extraction,
-                scheme_id=scheme_id,
-            )
-
-            # -------------------------------------------------
-            # 8g. Check deterministic rule failures
-            # -------------------------------------------------
-
-            if any(
-                result.passed is False
-                for result in validation_results
-            ):
-                validation_failed = True
-
-            # -------------------------------------------------
-            # 8h. Persist validation evidence
-            # -------------------------------------------------
-
-            _persist_validation_results(
-                application_id=application_id,
-                validation_results=validation_results,
-                supabase=supabase,
-            )
-
-            # -------------------------------------------------
-            # 8i. Keep extraction for matching
-            # -------------------------------------------------
-
-            extracted_documents.append(
-                {
-                    "document_id": document_id,
-                    "document_type": document_type,
-                    "extraction": extraction,
-                }
-            )
-
         except OCRProcessingError:
             # -------------------------------------------------
-            # OCR failed
+            # OCR actually failed.
+            #
+            # This is the only OCR-specific failure path that
+            # marks the document UNREADABLE.
             # -------------------------------------------------
 
             any_unreadable = True
@@ -420,9 +575,72 @@ def process_application_documents(
                 .execute()
             )
 
+            continue
+
+        except Exception:
+            # -------------------------------------------------
+            # Storage/download/system failure.
+            #
+            # Do NOT label this document as OCR unreadable.
+            # OCR was not necessarily attempted or failed.
+            # -------------------------------------------------
+
+            validation_failed = True
+
+            continue
+
+        # -----------------------------------------------------
+        # 8d. Persist successful OCR result
+        # -----------------------------------------------------
+
+        (
+            supabase.table("documents")
+            .update(
+                {
+                    "ocr_status": OCRStatus.READABLE.value,
+                    "ocr_text": ocr_text,
+                }
+            )
+            .eq(
+                "id",
+                document_id,
+            )
+            .execute()
+        )
+
+        try:
+            # -------------------------------------------------
+            # 8e. Structured extraction
+            # -------------------------------------------------
+
+            extraction = (
+                extraction_service.extract_document(
+                    text=ocr_text,
+                    document_type=document_type,
+                )
+            )
+
+            # -------------------------------------------------
+            # 8f. Keep extraction for application-level
+            #     validation and cross-document matching
+            #
+            # IMPORTANT:
+            # Append exactly once.
+            # -------------------------------------------------
+
+            extracted_documents.append(
+                {
+                    "document_id": document_id,
+                    "document_type": document_type,
+                    "extraction": extraction,
+                }
+            )
+
         except ExtractionError:
             # -------------------------------------------------
-            # OCR succeeded but extraction failed
+            # OCR succeeded but extraction failed.
+            # The document remains READABLE because OCR itself
+            # succeeded.
             # -------------------------------------------------
 
             validation_failed = True
@@ -443,16 +661,19 @@ def process_application_documents(
 
         except Exception:
             # -------------------------------------------------
-            # Unexpected processing failure
+            # Downstream processing failed after OCR.
+            #
+            # Preserve READABLE because OCR succeeded.
+            # Do not misclassify the document as UNREADABLE.
             # -------------------------------------------------
 
-            any_unreadable = True
+            validation_failed = True
 
             (
                 supabase.table("documents")
                 .update(
                     {
-                        "ocr_status": OCRStatus.UNREADABLE.value,
+                        "ocr_status": OCRStatus.READABLE.value,
                     }
                 )
                 .eq(
@@ -463,7 +684,58 @@ def process_application_documents(
             )
 
     # ---------------------------------------------------------
-    # 9. Cross-document matching
+    # 9. Application-level deterministic validation
+    # ---------------------------------------------------------
+    #
+    # All documents have now been OCR'd and structurally
+    # extracted.
+    #
+    # Eligibility rules operate on the consolidated application
+    # evidence rather than independently on every document.
+    #
+    # This prevents unrelated documents from generating
+    # "Not evaluable" copies of rules they do not contain.
+    # ---------------------------------------------------------
+
+    application_validation_results = []
+
+    if extracted_documents:
+        application_extraction = (
+            _build_application_extraction(
+                extracted_documents
+            )
+        )
+
+        application_validation_results = (
+            validate_extraction(
+                extraction=application_extraction,
+                scheme_id=scheme_id,
+            )
+        )
+
+        _persist_validation_results(
+            application_id=application_id,
+            validation_results=application_validation_results,
+            supabase=supabase,
+        )
+
+        # Every result here is an application-level eligibility
+        # rule.
+        #
+        # True  -> rule passed
+        # False -> rule failed
+        # None  -> required evidence was not evaluable
+        #
+        # Neither False nor None can result in approval.
+
+        if any(
+            result.passed is not True
+            for result in application_validation_results
+        ):
+            validation_failed = True
+
+    # ---------------------------------------------------------
+    # 10. Cross-document matching
     # ---------------------------------------------------------
 
     match_results = []
@@ -480,7 +752,7 @@ def process_application_documents(
         )
 
     # ---------------------------------------------------------
-    # 10. Determine matching conflict
+    # 11. Determine matching conflict
     # ---------------------------------------------------------
 
     matching_conflict = has_conflict(
@@ -488,7 +760,7 @@ def process_application_documents(
     )
 
     # ---------------------------------------------------------
-    # 11. Calculate prototype risk
+    # 12. Calculate prototype risk
     # ---------------------------------------------------------
 
     risk_assessment = calculate_risk(
@@ -499,7 +771,7 @@ def process_application_documents(
     )
 
     # ---------------------------------------------------------
-    # 12. Persist risk score
+    # 13. Persist risk score
     # ---------------------------------------------------------
 
     (
@@ -517,7 +789,7 @@ def process_application_documents(
     )
 
     # ---------------------------------------------------------
-    # 13. Determine final workflow state
+    # 14. Determine final workflow state
     # ---------------------------------------------------------
 
     if (
@@ -548,7 +820,7 @@ def process_application_documents(
         )
 
     # ---------------------------------------------------------
-    # 14. Persist final workflow transition
+    # 15. Persist final workflow transition
     # ---------------------------------------------------------
 
     transition_application(

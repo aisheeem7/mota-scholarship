@@ -116,7 +116,9 @@ function wait(ms: number): Promise<void> {
   });
 }
 
-function statusBadgeClass(status: Application["status"]): string {
+function statusBadgeClass(
+  status: Application["status"],
+): string {
   if (status === "APPROVED") {
     return "border-green-600 text-green-700";
   }
@@ -209,10 +211,12 @@ export default function UploadPage() {
     }
 
     setErrorMessage(null);
+
     setSelectedFiles((current) => ({
       ...current,
       [documentType]: file,
     }));
+
     setStatus("DEFAULT");
   }
 
@@ -300,16 +304,12 @@ export default function UploadPage() {
       return;
     }
 
-    const missingDocumentTypes = DOCUMENT_TYPES.filter(
-      (documentType) =>
-        !selectedFiles[documentType.value],
-    );
+    const selectedDocumentCount =
+      Object.values(selectedFiles).filter(Boolean).length;
 
-    if (missingDocumentTypes.length > 0) {
+    if (selectedDocumentCount === 0) {
       setErrorMessage(
-        `Please select all required documents before verification: ${missingDocumentTypes
-          .map((documentType) => documentType.label)
-          .join(", ")}.`,
+        "Please select at least one document before verification.",
       );
 
       setStatus("ERROR");
@@ -473,12 +473,13 @@ export default function UploadPage() {
           <CardContent className="space-y-6">
             <div className="rounded-lg border p-4">
               <p className="font-medium">
-                Select all required documents
+                Upload available documents
               </p>
 
               <p className="mt-1 text-sm text-muted-foreground">
-                Choose one file for each document. Verification
-                starts only after all four documents are uploaded.
+                Upload the documents you have.
+                Verification will check whether all
+                required documents are present.
               </p>
 
               <div className="mt-4 space-y-3">
@@ -551,12 +552,13 @@ export default function UploadPage() {
                     Object.values(selectedFiles).filter(
                       Boolean,
                     ).length
-                  }/4
+                  }
+                  /4
                 </p>
 
                 <p className="mt-1 text-xs text-muted-foreground">
-                  All four documents are required for this
-                  prototype verification flow.
+                  Missing required documents will be
+                  identified during verification.
                 </p>
               </div>
             )}
@@ -572,7 +574,7 @@ export default function UploadPage() {
             >
               {status === "UPLOADING"
                 ? "Uploading..."
-                : "Upload all documents & verify"}
+                : "Upload documents & verify"}
             </Button>
 
             {status === "UPLOADING" && (
@@ -610,8 +612,7 @@ export default function UploadPage() {
                   <CheckCircle2 className="h-4 w-4" />
 
                   <AlertDescription>
-                    Verification completed:
-                    {" "}
+                    Verification completed:{" "}
                     <strong>
                       {
                         APPLICATION_STATUS_LABELS[
