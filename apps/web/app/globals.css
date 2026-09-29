@@ -7,7 +7,7 @@
 @theme inline {
   --color-background: var(--background);
   --color-foreground: var(--foreground);
-  --font-sans: var(--font-sans);
+  --font-sans: var(--font-geist-sans), "Noto Sans", "Noto Sans Devanagari", "Noto Sans Bengali", system-ui, sans-serif;
   --font-mono: var(--font-geist-mono);
   --font-heading: var(--font-sans);
   --color-sidebar-ring: var(--sidebar-ring);
@@ -157,66 +157,180 @@
   }
 
   .gov-topbar {
-    background: #f4f6f8;
-    border-bottom: 1px solid #d9dee5;
-    color: #465362;
+    background: #0f2a52;
+    color: #d6deea;
+    font-size: 0.72rem;
+    letter-spacing: 0.01em;
+  }
+
+  .gov-language-switch {
+    display: inline-flex;
+    flex-shrink: 0;
+    overflow: hidden;
+    border: 1px solid rgb(255 255 255 / 22%);
+    border-radius: 0.25rem;
   }
 
   .gov-language-button {
-    border: 1px solid transparent;
-    border-radius: 0.2rem;
-    padding: 0.2rem 0.5rem;
-    color: #344054;
-    transition: background-color 120ms ease, border-color 120ms ease;
+    padding: 0.15rem 0.6rem;
+    color: #d6deea;
+    font-size: 0.72rem;
+    line-height: 1.1rem;
+    transition: background-color 120ms ease, color 120ms ease;
   }
 
-  .gov-language-button:hover,
-  .gov-language-active {
-    border-color: #b8c1cc;
+  .gov-language-button + .gov-language-button {
+    border-left: 1px solid rgb(255 255 255 / 22%);
+  }
+
+  .gov-language-button:hover {
+    background: rgb(255 255 255 / 10%);
+    color: white;
+  }
+
+  .gov-language-active,
+  .gov-language-active:hover {
     background: white;
-    color: #183b73;
+    color: #0f2a52;
+    font-weight: 600;
   }
 
   .gov-tricolor {
-    height: 4px;
+    height: 3px;
     background: linear-gradient(
       to right,
-      #e87518 0 33.33%,
+      #ff9933 0 33.33%,
       #ffffff 33.33% 66.66%,
-      #2d8a57 66.66% 100%
+      #138808 66.66% 100%
     );
-    border-bottom: 1px solid #d8d8d8;
   }
 
   .gov-masthead {
-    height: 124px;
-    overflow: hidden;
     background: white;
-    border-bottom: 1px solid #d9dee5;
+    border-bottom: 1px solid #e3e8ef;
+  }
+
+  .gov-brand {
+    display: flex;
+    min-width: 0;
+    align-items: center;
+    gap: 0.875rem;
+  }
+
+  .gov-brand-logo {
+    height: 48px;
+    width: auto;
+    flex-shrink: 0;
+  }
+
+  .gov-brand-divider {
+    display: none;
+    align-self: stretch;
+    width: 1px;
+    margin-block: 0.35rem;
+    background: #d5dce6;
+  }
+
+  .gov-brand-text {
+    display: none;
+    min-width: 0;
+    flex-direction: column;
+    gap: 0.15rem;
+  }
+
+  .gov-brand-ministry {
+    color: #5b6778;
+    font-size: 0.7rem;
+    font-weight: 600;
+    letter-spacing: 0.06em;
+    line-height: 1rem;
+    text-transform: uppercase;
+  }
+
+  .gov-brand-subtitle {
+    display: -webkit-box;
+    max-width: 34rem;
+    overflow: hidden;
+    color: #0f2a52;
+    font-size: 0.9rem;
+    font-weight: 600;
+    line-height: 1.25rem;
+    -webkit-box-orient: vertical;
+    -webkit-line-clamp: 2;
+  }
+
+  @media (min-width: 640px) {
+    .gov-brand-logo {
+      height: 58px;
+    }
+
+    .gov-brand-divider {
+      display: block;
+    }
+
+    .gov-brand-text {
+      display: flex;
+    }
+  }
+
+  .gov-masthead-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.4rem;
+    border: 1px solid #f3c58f;
+    border-radius: 999px;
+    background: #fff7ed;
+    padding: 0.25rem 0.7rem;
+    color: #9a4a06;
+    font-size: 0.72rem;
+    font-weight: 600;
+    white-space: nowrap;
+  }
+
+  .gov-masthead-badge::before {
+    content: "";
+    width: 0.4rem;
+    height: 0.4rem;
+    border-radius: 999px;
+    background: #ff9933;
   }
 
   .gov-nav {
     background: #183b73;
     color: white;
-    box-shadow: 0 2px 8px rgb(24 59 115 / 12%);
+    box-shadow: 0 2px 6px rgb(15 42 82 / 18%);
   }
 
   .gov-nav-link {
     display: inline-flex;
     align-items: center;
-    min-height: 2.75rem;
+    height: 2.5rem;
     border-bottom: 3px solid transparent;
-    padding: 0.5rem 0.8rem;
-    color: #f7f9fc;
-    font-size: 0.875rem;
-    font-weight: 600;
+    padding: 3px 0.9rem 0;
+    color: #e8eef7;
+    font-size: 0.85rem;
+    font-weight: 500;
     white-space: nowrap;
+    transition: background-color 120ms ease, border-color 120ms ease;
   }
 
-  .gov-nav-link:hover,
-  .gov-nav-active {
-    border-bottom-color: #f39a36;
+  .gov-nav-link:hover {
     background: rgb(255 255 255 / 8%);
+    color: white;
+  }
+
+  .gov-nav-active,
+  .gov-nav-active:hover {
+    border-bottom-color: #ff9933;
+    background: rgb(255 255 255 / 12%);
+    color: white;
+    font-weight: 600;
+  }
+
+  .gov-nav-link:focus-visible,
+  .gov-language-button:focus-visible {
+    outline: 2px solid #ffb866;
+    outline-offset: -2px;
   }
 
   .gov-footer {
