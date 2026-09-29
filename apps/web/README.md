@@ -1,36 +1,49 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# TRISETU Web Application
+
+The Next.js frontend for TRISETU. It contains the student portal, the administration dashboard and the application review interface. See the [project README](../../README.md) for the full system overview.
+
+## Features
+
+- **Student portal:** scheme selection, document upload with checks in the browser, and a status timeline.
+- **Administration:** live application dashboard, application queue and review page with a validation scorecard.
+- **Officer decisions:** approve, reject or request resubmission, each with a mandatory reason.
+- **Languages:** English, Hindi and Bengali, switchable from the header.
+- **Government-style interface:** compact masthead, tricolour accent, skip link and accessible focus states.
 
 ## Getting Started
 
-First, run the development server:
-
 ```bash
+npm install
+cp .env.example .env.local
 npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+The application is served at `http://localhost:3000`. The backend must be running at the URL set in `NEXT_PUBLIC_API_URL`.
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+## Environment Variables
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+| Variable | Purpose |
+|---|---|
+| `NEXT_PUBLIC_API_URL` | Base URL of the FastAPI backend, for example `http://localhost:8000` |
+| `NEXT_PUBLIC_DEMO_STUDENT_ID` | UUID of a seeded student, used by the demo upload flow |
 
-## Learn More
+## Scripts
 
-To learn more about Next.js, take a look at the following resources:
+| Command | Purpose |
+|---|---|
+| `npm run dev` | Start the development server |
+| `npm run build` | Create a production build (includes type checking) |
+| `npm run start` | Serve the production build |
+| `npm run lint` | Run ESLint |
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+## Structure
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
-
-## Deploy on Vercel
-
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
-
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+| Path | Contents |
+|---|---|
+| `app/` | Routes: home, `student/*`, `admin/*` |
+| `components/layout/` | Government header, footer and language provider |
+| `components/admin/` | Validation scorecard |
+| `components/ui/` | Shared UI components |
+| `lib/api.ts` | Typed client for the backend API |
+| `lib/i18n.ts` | English, Hindi and Bengali translations |
+| `lib/types.ts` | Shared API types and status labels |
