@@ -45,7 +45,11 @@ class FakeQuery:
         return self
 
     def insert(self, data):
-        self.pending_insert = dict(data)
+        # supabase-py accepts a single row or a list of rows.
+        if isinstance(data, list):
+            self.pending_insert = [dict(row) for row in data]
+        else:
+            self.pending_insert = [dict(data)]
         return self
 
     def update(self, data):
@@ -73,8 +77,8 @@ class FakeQuery:
             return FakeResult(rows)
 
         if self.pending_insert is not None:
-            table.append(self.pending_insert)
-            return FakeResult([self.pending_insert])
+            table.extend(self.pending_insert)
+            return FakeResult(self.pending_insert)
 
         return FakeResult(rows)
 

@@ -81,10 +81,15 @@ class FakeQuery:
         # --------------------------------------------------------
 
         if self.pending_insert is not None:
-            row = dict(self.pending_insert)
-            table.append(row)
+            # supabase-py accepts a single row or a list of rows.
+            if isinstance(self.pending_insert, list):
+                inserted = [dict(row) for row in self.pending_insert]
+            else:
+                inserted = [dict(self.pending_insert)]
 
-            return FakeResult([row])
+            table.extend(inserted)
+
+            return FakeResult(inserted)
 
         # --------------------------------------------------------
         # SELECT
@@ -642,6 +647,33 @@ def test_process_application_not_found():
 # ============================================================
 
 
+def _add_supporting_document(
+    application_id: str,
+    document_id: str,
+    document_type: str,
+) -> None:
+    """Attach an additional stored document to a pipeline test application."""
+
+    storage_path = (
+        f"applications/{application_id}/"
+        f"{document_id}-{document_type}.pdf"
+    )
+
+    fake_supabase.database["documents"].append(
+        {
+            "id": document_id,
+            "application_id": application_id,
+            "document_type": document_type,
+            "storage_path": storage_path,
+            "ocr_status": "PROCESSING",
+        }
+    )
+
+    fake_supabase.storage_data[storage_path] = {
+        "bytes": b"supporting pdf content",
+    }
+
+
 def test_ocr_pipeline_readable(monkeypatch):
     application_id = "11111111-1111-1111-1111-111111111111"
     document_id = "22222222-2222-2222-2222-222222222222"
@@ -676,6 +708,19 @@ def test_ocr_pipeline_readable(monkeypatch):
     fake_supabase.storage_data[storage_path] = {
         "bytes": b"fake pdf content",
     }
+
+    # Category and academic level are read only from their
+    # authoritative documents, so the complete set is uploaded.
+    _add_supporting_document(
+        application_id,
+        "22222222-2222-2222-2222-222222222223",
+        "CASTE_CERTIFICATE",
+    )
+    _add_supporting_document(
+        application_id,
+        "22222222-2222-2222-2222-222222222224",
+        "ACADEMIC_RECORD",
+    )
 
     mock_required_documents_present(monkeypatch)
 
@@ -1050,6 +1095,13 @@ def test_ocr_pipeline_name_mismatch_is_flagged_for_review(monkeypatch):
         "bytes": b"identity pdf",
     }
 
+    # Academic level is read only from the academic record.
+    _add_supporting_document(
+        application_id,
+        "bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbc",
+        "ACADEMIC_RECORD",
+    )
+
     mock_required_documents_present(monkeypatch)
 
     monkeypatch.setattr(
@@ -1163,6 +1215,13 @@ def test_extract_document_success(monkeypatch):
         gpt4o_provider,
         "OpenAI",
         lambda api_key: FakeClient(),
+    )
+
+    # The client is faked, so the test must not depend on a real key.
+    monkeypatch.setattr(
+        gpt4o_provider.settings,
+        "openai_api_key",
+        "test-key",
     )
 
     provider = GPT4oExtractionProvider()
