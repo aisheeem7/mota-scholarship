@@ -1,17 +1,17 @@
 -- Locks student_document_matches.match_status to the agreed three-value enum
--- (Nirmalya's proposal on PR #2, confirmed and APPROVED by Anmol).
+-- (agreed during schema review on PR #2).
 alter table student_document_matches
   add constraint student_document_matches_match_status_check
   check (match_status is null or match_status in ('EXACT_MATCH', 'HARMLESS_VARIANT', 'CONFLICT'));
 
--- Schema-integrity fix requested by Anmol as a condition of his PR #2 approval:
+-- Schema-integrity fix from the PR #2 review:
 -- left_document_id and right_document_id must both belong to the SAME
 -- application_id already recorded on the match row. The individual per-column
 -- FKs (documents.id) are valid independently, so without this a row could
 -- reference two documents from different applications while claiming a third
 -- application_id. Enforced declaratively via a composite FK against a unique
--- (id, application_id) pair on documents, per Anmol's stated preference over
--- application-only validation.
+-- (id, application_id) pair on documents, preferred over application-only
+-- validation.
 alter table documents
   add constraint documents_id_application_id_key
   unique (id, application_id);

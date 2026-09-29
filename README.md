@@ -10,6 +10,10 @@
 </p>
 
 <p align="center">
+  <b>Smart India Hackathon Submission</b> &nbsp;|&nbsp; <b>Team Luminex03</b>
+</p>
+
+<p align="center">
   <b>Next.js 16</b> &nbsp;|&nbsp; <b>FastAPI</b> &nbsp;|&nbsp; <b>Supabase (PostgreSQL + Storage)</b> &nbsp;|&nbsp; <b>LlamaCloud OCR</b> &nbsp;|&nbsp; <b>GPT-4o structured extraction</b>
 </p>
 
@@ -479,15 +483,19 @@ TRISETU is a working prototype. The following limits are deliberate and document
 
 ## 18. Team
 
-| Member | Area of Contribution |
-|---|---|
-| **Aishee Mukherjee** | Frontend (student and admin portals, government interface, internationalisation), pipeline hardening, integration |
-| **Debopriya Das** | Backend API, verification pipeline, validation, matching, risk and workflow services, test suite |
-| **Adrija Tarafder** | Database schema, migrations, constraints, Row Level Security and seed data |
-| **Ashmita Dutta** | Scheme research, scheme rules configuration, translations |
+TRISETU is built by **Team Luminex03** for the **Smart India Hackathon**.
+
+| Team Members |
+|---|
+| Adrija Tarafder |
+| Aishee Mukherjee |
+| Anmol Trivedi |
+| Ashmita Dutta |
+| Debopriya Das |
+| Nirmalya Mandal |
 
 ---
 
 ## 19. Disclaimer
 
-TRISETU is a prototype built for demonstration and evaluation. It is **not an official Government of India portal** and is not affiliated with or endorsed by the Ministry of Tribal Affairs. All data in this repository is synthetic, and no real personal data is included.
+TRISETU is a prototype built by Team Luminex03 for the Smart India Hackathon, for demonstration and evaluation. It is **not an official Government of India portal** and is not affiliated with or endorsed by the Ministry of Tribal Affairs. All data in this repository is synthetic, and no real personal data is included.

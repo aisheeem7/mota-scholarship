@@ -3,7 +3,7 @@
 -- policy, only the service-role key can reach these tables -- exactly what
 -- the FastAPI backend should use server-side. Never put it in Next.js client code.
 --
--- Intended access per entity (draft -- needs Anmol's sign-off, see handoff note):
+-- Intended access per entity (draft, pending the authentication model):
 --   students                  -> owning student (read own) + admin (read/write all)
 --   applications               -> owning student (read own, no direct write) + admin (read/write all)
 --   documents                  -> owning student (read own, no raw file access -- signed URLs only) + admin (read/write all)

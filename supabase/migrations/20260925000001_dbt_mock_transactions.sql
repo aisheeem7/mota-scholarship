@@ -1,5 +1,4 @@
--- Adds dbt_mock_transactions table, per Issue #6 item 4 (DBT_MOCK, frozen contract
--- confirmed by Aishee + Debopriya):
+-- Adds dbt_mock_transactions table, per Issue #6 item 4 (DBT_MOCK, frozen contract):
 --   - separate table from applications (Option B), keyed 1:1 to an application
 --     via UNIQUE(application_id) -- an application's lifecycle status and its
 --     downstream DBT transfer state are deliberately not conflated

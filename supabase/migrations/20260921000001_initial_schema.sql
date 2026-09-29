@@ -1,5 +1,5 @@
 -- Day 1: relational data model + vector readiness for MoTA Scholarship System.
--- Freezes the contract Debopriya's FastAPI/Pydantic layer builds against.
+-- Defines the contract the FastAPI/Pydantic layer builds against.
 
 create extension if not exists pgcrypto with schema extensions;
 create extension if not exists vector with schema extensions;

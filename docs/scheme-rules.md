@@ -6,7 +6,7 @@ in [`config/translations/*.json`](../config/translations/en.json) — this file 
 
 ## Stable IDs
 
-Five schemes, locked for Day 1. Use these exact strings everywhere `scheme_id` is read or written
+Five schemes. Use these exact strings everywhere `scheme_id` is read or written
 (`applications.scheme_id` in the DB, `ApplicationCreate.scheme_id` in the API, frontend scheme selector):
 
 | id | name |
@@ -69,8 +69,3 @@ These are **PROTOTYPE CONFIGURATION**, not official MoTA policy. No source in th
 - Exact INR amounts for `POST_MATRIC` benefit components (maintenance allowance / fee slabs).
 - Official per-scheme required documents, if an official source is ever supplied. Until then the prototype
   decision above applies.
-
-## Handoffs
-
-- Rule IDs (table above) → Debopriya, for `applications.scheme_id` / any future check constraint.
-- This file + `config/schemes.json` → Nirmalya + Anmol for the 13:00 / 21:00 review checkpoints.
