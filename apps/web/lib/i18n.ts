@@ -56,6 +56,7 @@ const translations = {
     invalidFile: "is invalid. Use a non-empty PDF, JPG, JPEG or PNG file up to 10 MB.",
     none: "None", low: "Low", medium: "Medium", high: "High",
     reviewReasonDefault: "Reviewed by administrator based on the submitted evidence.",
+    applicationVerification: "Application Verification", adminReview: "Administrative Review",
   },
   hi: {
     skipToContent: "मुख्य सामग्री पर जाएँ", prototype: "छात्रवृत्ति सत्यापन प्रोटोटाइप",
@@ -106,6 +107,7 @@ const translations = {
     invalidFile: "अमान्य है। 10 MB तक की गैर-रिक्त PDF, JPG, JPEG या PNG फ़ाइल का उपयोग करें।",
     none: "कोई नहीं", low: "कम", medium: "मध्यम", high: "उच्च",
     reviewReasonDefault: "प्रस्तुत साक्ष्य के आधार पर प्रशासक द्वारा समीक्षा की गई।",
+    applicationVerification: "आवेदन सत्यापन", adminReview: "प्रशासनिक समीक्षा",
   },
   bn: {
     skipToContent: "মূল বিষয়বস্তুতে যান", prototype: "বৃত্তি যাচাইকরণ প্রোটোটাইপ",
@@ -156,6 +158,7 @@ const translations = {
     invalidFile: "অবৈধ। ১০ MB পর্যন্ত খালি নয় এমন PDF, JPG, JPEG বা PNG ফাইল ব্যবহার করুন।",
     none: "কোনও নয়", low: "কম", medium: "মাঝারি", high: "উচ্চ",
     reviewReasonDefault: "জমা দেওয়া প্রমাণের ভিত্তিতে প্রশাসক পর্যালোচনা করেছেন।",
+    applicationVerification: "আবেদন যাচাইকরণ", adminReview: "প্রশাসনিক পর্যালোচনা",
   },
 } as const;
 

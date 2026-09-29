@@ -1,20 +1,49 @@
+"use client";
+
+import { useEffect, useState } from "react";
 import Link from "next/link";
 import { ArrowRight } from "lucide-react";
 
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { useLanguage } from "@/components/layout/language-provider";
+import { getAdminApplications } from "@/lib/api";
+import type { Application, ApplicationStatus } from "@/lib/types";
 
+function countByStatus(
+  applications: Application[] | null,
+  statuses: ApplicationStatus[],
+): string {
+  if (applications === null) {
+    return "—";
+  }
 
+  return applications
+    .filter((application) => statuses.includes(application.status))
+    .length
+    .toLocaleString("en-IN");
+}
 
 export default function AdminDashboard() {
   const { t } = useLanguage();
+  const [applications, setApplications] = useState<Application[] | null>(null);
+  const [loadFailed, setLoadFailed] = useState(false);
+
+  useEffect(() => {
+    getAdminApplications()
+      .then(setApplications)
+      .catch(() => setLoadFailed(true));
+  }, []);
+
   const statistics = [
-    { label: t("totalApplications"), value: "1,248" },
-    { label: t("processing"), value: "326" },
-    { label: t("approved"), value: "714" },
-    { label: t("deficient"), value: "142" },
-    { label: t("flaggedForReview"), value: "66" },
+    {
+      label: t("totalApplications"),
+      value: applications === null ? "—" : applications.length.toLocaleString("en-IN"),
+    },
+    { label: t("processing"), value: countByStatus(applications, ["SUBMITTED", "PROCESSING", "RESUBMITTED"]) },
+    { label: t("approved"), value: countByStatus(applications, ["APPROVED"]) },
+    { label: t("deficient"), value: countByStatus(applications, ["DEFICIENT"]) },
+    { label: t("flaggedForReview"), value: countByStatus(applications, ["FLAGGED_FOR_REVIEW", "ADMIN_REVIEW"]) },
   ];
 
   return (
@@ -34,6 +63,12 @@ export default function AdminDashboard() {
             {t("dashboardDescription")}
           </p>
         </header>
+
+        {loadFailed && (
+          <p className="mb-4 text-sm text-destructive" role="alert">
+            {t("errorApplications")}
+          </p>
+        )}
 
         <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-5">
 
