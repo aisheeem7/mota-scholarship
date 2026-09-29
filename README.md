@@ -10,7 +10,8 @@
 </p>
 
 <p align="center">
-  <b>Smart India Hackathon Submission</b> &nbsp;|&nbsp; <b>Team Luminex03</b>
+  <b>Smart India Hackathon Submission</b> &nbsp;|&nbsp; <b>Team Luminex03</b><br />
+  <b>Problem Statement 26239:</b> AI-Enabled Scholarship and Fellowship Management System for Scheduled Tribes
 </p>
 
 <p align="center">
@@ -39,11 +40,19 @@
 16. [Prototype Scope and Limitations](#16-prototype-scope-and-limitations)
 17. [Roadmap](#17-roadmap)
 18. [Team](#18-team)
-19. [Disclaimer](#19-disclaimer)
+19. [License](#19-license)
+20. [Disclaimer](#20-disclaimer)
 
 ---
 
 ## 1. Overview
+
+| Submission | Details |
+|---|---|
+| **Event** | Smart India Hackathon |
+| **Problem Statement ID** | 26239 |
+| **Problem Statement** | AI-Enabled Scholarship and Fellowship Management System for Scheduled Tribes |
+| **Team** | Luminex03 |
 
 **TRISETU** (*tri*, three + *setu*, bridge) links the three parties in every scholarship decision: the **student**, the **evidence** they submit and the **administering authority**.
 
@@ -483,7 +492,7 @@ TRISETU is a working prototype. The following limits are deliberate and document
 
 ## 18. Team
 
-TRISETU is built by **Team Luminex03** for the **Smart India Hackathon**.
+TRISETU is built by **Team Luminex03** for the **Smart India Hackathon**, Problem Statement **26239**.
 
 | Team Members |
 |---|
@@ -496,6 +505,12 @@ TRISETU is built by **Team Luminex03** for the **Smart India Hackathon**.
 
 ---
 
-## 19. Disclaimer
+## 19. License
 
-TRISETU is a prototype built by Team Luminex03 for the Smart India Hackathon, for demonstration and evaluation. It is **not an official Government of India portal** and is not affiliated with or endorsed by the Ministry of Tribal Affairs. All data in this repository is synthetic, and no real personal data is included.
+This project is released under the [MIT License](LICENSE). The permissive license lets government bodies, institutions and developers adopt, adapt and extend TRISETU freely, in line with the open-source practice of India's digital public infrastructure.
+
+---
+
+## 20. Disclaimer
+
+TRISETU is a prototype built by Team Luminex03 for the Smart India Hackathon (Problem Statement 26239), for demonstration and evaluation. It is **not an official Government of India portal** and is not affiliated with or endorsed by the Ministry of Tribal Affairs. All data in this repository is synthetic, and no real personal data is included.
