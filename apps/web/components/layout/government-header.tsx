@@ -39,7 +39,7 @@ export function GovernmentHeader() {
         <div className="gov-container flex h-full items-center justify-between gap-6 px-4 sm:px-6">
           <Link
             href="/"
-            className="flex min-w-0 max-w-[42rem] flex-col items-start gap-1.5"
+            className="flex min-w-0 max-w-[44rem] flex-col items-start gap-0.5"
             aria-label="TRISETU home"
           >
             <Image
@@ -48,7 +48,7 @@ export function GovernmentHeader() {
               width={220}
               height={110}
               priority
-              className="h-auto w-[135px] max-w-full object-contain object-left sm:w-[155px]"
+              className="h-auto w-[175px] max-w-full object-contain object-left sm:w-[200px]"
             />
             <p className="max-w-[32rem] break-words text-[11px] font-medium leading-4 text-slate-600 sm:text-xs sm:leading-4">
               {t("subtitle")}
