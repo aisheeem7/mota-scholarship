@@ -36,7 +36,7 @@ export function GovernmentHeader() {
       <div className="gov-tricolor" aria-hidden="true" />
 
       <header className="gov-masthead">
-        <div className="gov-container flex min-h-20 items-center justify-between gap-6 px-4 py-3 sm:px-6">
+        <div className="gov-container flex h-full items-center justify-between gap-6 px-4 sm:px-6">
           <Link
             href="/"
             className="flex min-w-0 max-w-[42rem] flex-col items-start gap-1.5"
@@ -48,9 +48,9 @@ export function GovernmentHeader() {
               width={220}
               height={110}
               priority
-              className="h-auto w-[150px] max-w-full object-contain object-left sm:w-[175px]"
+              className="h-auto w-[135px] max-w-full object-contain object-left sm:w-[155px]"
             />
-            <p className="max-w-[36rem] break-words text-xs font-medium leading-4 text-slate-600 sm:text-sm sm:leading-5">
+            <p className="max-w-[32rem] break-words text-xs font-medium leading-4 text-slate-600 sm:text-sm sm:leading-5">
               {t("subtitle")}
             </p>
           </Link>
