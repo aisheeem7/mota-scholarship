@@ -50,14 +50,14 @@ export function GovernmentHeader() {
               priority
               className="h-auto w-[135px] max-w-full object-contain object-left sm:w-[155px]"
             />
-            <p className="max-w-[32rem] break-words text-xs font-medium leading-4 text-slate-600 sm:text-sm sm:leading-5">
+            <p className="max-w-[32rem] break-words text-[11px] font-medium leading-4 text-slate-600 sm:text-xs sm:leading-4">
               {t("subtitle")}
             </p>
           </Link>
 
-          <div className="hidden text-right sm:block">
-            <p className="text-sm font-semibold text-slate-700">{t("ministry")}</p>
-            <p className="mt-1 text-xs text-slate-500">{t("prototypeNotice")}</p>
+          <div className="hidden max-w-[23rem] text-right sm:block">
+            <p className="text-xs font-semibold leading-4 text-slate-700 sm:text-sm">{t("ministry")}</p>
+            <p className="mt-0.5 text-[10px] leading-4 text-slate-500 sm:text-xs">{t("prototypeNotice")}</p>
           </div>
         </div>
       </header>
